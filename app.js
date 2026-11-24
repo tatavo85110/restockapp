@@ -1135,12 +1135,20 @@
       const pending = DB.pendingSales().length;
       const filters = ['À vérifier', 'Tous', ...[...new Set(DB.products.map((p) => p.cat))].sort((a, b) => a.localeCompare(b, 'fr'))];
       return `<div class="topbar"><h1 class="page-title" style="margin:0">Inventaire</h1><button class="btn btn-ghost btn-sm press" style="width:auto" data-tools>${ic('download')}Excel</button></div>
-        <p class="page-sub">Fin de journée : compte ce qui reste. Les ventes de la caisse sont déjà déduites grâce aux recettes, il ne reste qu'à corriger les écarts.</p>
-        <button class="card card-pad sales-card press-soft" data-go="/sales" style="margin-top:14px;width:100%;text-align:left">
+        <p class="page-sub">Fin de journée : 3 étapes pour que le stock de demain matin soit juste.</p>
+        <div class="step-h"><span>1</span>Ventes de la caisse</div>
+        <button class="card card-pad sales-card press-soft" data-go="/sales" style="width:100%;text-align:left">
           <span class="m-ico" style="background:var(--ia-bg);color:var(--ia)">${ic('receipt')}</span>
           <span class="grow" style="display:flex;flex-direction:column"><b>Ventes du service</b><span style="font-size:13px;color:var(--ink-2)">${pending ? `${pending} vente${pending > 1 ? 's' : ''} de la caisse à déduire` : 'Caisse → recettes → stock'}</span></span>
           ${pending ? pill('sent new', String(pending)) : ''}${ic('chev', 'chev')}</button>
-        <div class="chips" role="tablist" style="margin-top:14px">${filters.map((f) => `<button class="chip ${f === invState.filter ? 'active' : ''}" data-f="${esc(f)}">${esc(f)}</button>`).join('')}</div>
+        <div class="step-h"><span>2</span>Pertes et erreurs du jour</div>
+        <div class="card card-pad">
+          <p style="margin:0 0 10px;font-size:14px;color:var(--ink-2);line-height:1.45">Un steak brûlé, une bouteille cassée, un plat refait, le repas du personnel… Déclare-le pour que le stock reste juste.</p>
+          <button class="btn btn-primary press ripple-host" data-loss>${ic('minus')}Déclarer une perte</button>
+          ${(() => { const L = DB.lossesToday(); return L.length ? `<div class="loss-list">${L.map((l) => `<div class="loss"><span class="grow"><b>${esc(l.label)}</b><span>${esc(l.reason)} · ${l.at}</span></span><b class="num">−${nf(l.qty)} ${esc(unitLabel(l.unit, l.qty))}</b></div>`).join('')}<div class="loss-total">Valeur perdue aujourd'hui <b class="num">${euro(L.reduce((t, l) => t + (l.value || 0), 0))}</b></div></div>` : ''; })()}
+        </div>
+        <div class="step-h"><span>3</span>Vérifier les quantités</div>
+        <div class="chips" role="tablist" style="margin-top:0">${filters.map((f) => `<button class="chip ${f === invState.filter ? 'active' : ''}" data-f="${esc(f)}">${esc(f)}</button>`).join('')}</div>
         <p class="hint-swipe" style="margin:10px 2px 8px" data-hint></p>
         <div data-list>${DB.ready ? '' : skeletonList(6)}</div>
         <div class="sticky-foot" data-foot style="display:none"><button class="btn btn-primary press ripple-host" data-save></button></div>`;
@@ -1173,6 +1181,7 @@
         const counts = changed().map(([id, qty]) => ({ id, qty }));
         try { const n = await btnLoading(save, DB.saveInventory(counts)); invState.counts = {}; haptic([15, 30, 15]); toast(`Inventaire enregistré · ${n} correction${n > 1 ? 's' : ''}`); render({ silent: true }); } catch (e) { fail(e); }
       });
+      el.querySelector('[data-loss]').addEventListener('click', () => openLoss());
       el.querySelector('[data-tools]').addEventListener('click', () => sheet(`<h3>Excel / Google Sheets</h3><p class="page-sub" style="margin-top:4px">Pour aller plus vite, compte sur un tableur puis importe le fichier. Format CSV (s'ouvre dans Excel et Google Sheets).</p>
         <div class="list" style="margin-top:14px">
           <button class="row press-soft" data-exp><span class="m-ico" style="background:var(--ok-bg);color:var(--ok)">${ic('download')}</span><span class="grow"><span class="title">Exporter le stock</span><span class="meta">Feuille d'inventaire à remplir (colonne « Quantité comptée »)</span></span></button>
@@ -1193,6 +1202,49 @@
       }));
     }
   };
+
+  /* ---------- Déclarer une perte (steak brûlé, casse…) ---------- */
+  const REASONS = ['Brûlé / raté', 'Cassé / renversé', 'Périmé / abîmé', 'Repas du personnel', 'Offert', 'Erreur de saisie', 'Autre'];
+  function openLoss() {
+    const st = { mode: 'produit', id: null, qty: 1, reason: REASONS[0] };
+    const quick = ['Faux-filet', 'Frites', 'Pommes', 'Bordeaux', 'Crème', 'Glace'];
+    sheet(`<h3>Déclarer une perte</h3>
+      <div class="seg" role="tablist"><button class="on" data-m="produit">Un produit</button><button data-m="plat">Un plat entier refait</button></div>
+      <div class="field" style="margin-top:14px"><label>Quoi ?</label><button class="pick press-soft" data-pick><span data-pl>Choisir…</span>${ic('chev', 'chev')}</button></div>
+      <div class="field"><label>Combien ?</label><div style="display:flex;align-items:center;gap:12px"><div class="stepper"><button data-q="-1" aria-label="Moins">${ic('minus')}</button><output class="num" data-qo>1</output><button data-q="1" aria-label="Plus">${ic('plus')}</button></div><input type="number" inputmode="decimal" step="0.05" min="0" class="time-input" style="min-width:0;width:96px" data-qi value="1" aria-label="Quantité"><span data-u style="color:var(--ink-2);font-weight:600"></span></div></div>
+      <div class="field"><label>Pourquoi ?</label><div class="reason-chips">${REASONS.map((r, i) => `<button class="chip ${i === 0 ? 'active' : ''}" data-r="${esc(r)}">${esc(r)}</button>`).join('')}</div></div>
+      <p data-impact style="font-size:13.5px;color:var(--ink-2);margin:12px 2px 0"></p>
+      <button class="btn btn-primary press ripple-host" style="margin-top:14px" data-ok disabled>Retirer du stock</button>`,
+    (sh, close) => {
+      const pl = sh.querySelector('[data-pl]'), qo = sh.querySelector('[data-qo]'), qi = sh.querySelector('[data-qi]'), u = sh.querySelector('[data-u]'), imp = sh.querySelector('[data-impact]'), ok = sh.querySelector('[data-ok]');
+      const upd = () => {
+        qo.textContent = nf(st.qty, 2); if (document.activeElement !== qi) qi.value = st.qty;
+        let label = 'Choisir…', unit = '', txt = '';
+        if (st.id && st.mode === 'produit') { const p = DB.product(st.id); label = p.name; unit = unitLabel(p.unit, st.qty); txt = `Stock : ${qtyStr(p.qty, p.unit)} → <b>${qtyStr(Math.max(0, Math.round((p.qty - st.qty) * 100) / 100), p.unit)}</b> · ${euro(st.qty * p.price)} perdus`; }
+        if (st.id && st.mode === 'plat') { const P = DB.plat(st.id); label = P.name; unit = st.qty > 1 ? 'assiettes' : 'assiette'; const usage = DB.usage([{ platId: P.id, qty: st.qty }]); const v = Object.entries(usage).reduce((t, [id, q]) => { const p = DB.product(id); return t + (p ? p.price * q : 0); }, 0); txt = `Retire les ${Object.keys(usage).length} ingrédients de la recette · ${euro(v)} perdus`; }
+        pl.textContent = label; u.textContent = unit; imp.innerHTML = txt; ok.disabled = !(st.id && st.qty > 0);
+      };
+      sh.querySelectorAll('[data-m]').forEach((b) => b.addEventListener('click', () => { st.mode = b.dataset.m; st.id = null; st.qty = 1; sh.querySelectorAll('[data-m]').forEach((x) => x.classList.toggle('on', x === b)); upd(); }));
+      sh.querySelector('[data-pick]').addEventListener('click', () => {
+        if (st.mode === 'produit') {
+          const items = [...DB.products].sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+          sheet(`<h3>Quel produit ?</h3><label class="search" style="margin-top:12px">${ic('search')}<input placeholder="Rechercher (ex. faux-filet)"></label><div class="list" style="margin-top:12px">${items.map((p) => `<button class="row press-soft" data-pid="${p.id}"><span class="grow"><span class="title">${esc(p.name)}</span><span class="meta">En stock : ${qtyStr(p.qty, p.unit)}</span></span></button>`).join('')}</div>`, (s2, c2) => {
+            const inp = s2.querySelector('input'); inp.addEventListener('input', () => { const q = norm(inp.value); s2.querySelectorAll('[data-pid]').forEach((b) => (b.style.display = norm(b.textContent).includes(q) ? '' : 'none')); });
+            s2.querySelectorAll('[data-pid]').forEach((b) => b.addEventListener('click', () => { st.id = b.dataset.pid; const p = DB.product(st.id); st.qty = p.unit === 'kg' || p.unit === 'L' ? 0.2 : 1; c2(); upd(); }));
+          });
+        } else {
+          sheet(`<h3>Quel plat ?</h3><div class="list" style="margin-top:12px">${DB.plats.map((P) => `<button class="row press-soft" data-plid="${P.id}"><span class="grow"><span class="title">${esc(P.name)}</span><span class="meta">${P.recipe.length} ingrédients</span></span></button>`).join('')}</div>`, (s2, c2) => s2.querySelectorAll('[data-plid]').forEach((b) => b.addEventListener('click', () => { st.id = b.dataset.plid; st.qty = 1; c2(); upd(); })));
+        }
+      });
+      sh.querySelectorAll('[data-q]').forEach((b) => b.addEventListener('click', () => { const p = st.mode === 'produit' && st.id && DB.product(st.id); const step = p && (p.unit === 'kg' || p.unit === 'L') ? 0.1 : 1; st.qty = Math.max(0, Math.round((st.qty + step * Number(b.dataset.q)) * 100) / 100); haptic(6); upd(); }));
+      qi.addEventListener('input', () => { const v = num(qi.value); if (!isNaN(v)) { st.qty = v; upd(); } });
+      sh.querySelectorAll('[data-r]').forEach((b) => b.addEventListener('click', () => { st.reason = b.dataset.r; sh.querySelectorAll('[data-r]').forEach((x) => x.classList.toggle('active', x === b)); }));
+      ok.addEventListener('click', async () => {
+        try { await btnLoading(ok, DB.declareLoss(st.mode === 'plat' ? { platId: st.id, qty: st.qty, reason: st.reason } : { productId: st.id, qty: st.qty, reason: st.reason })); close(); haptic([15, 30, 15]); toast('Perte enregistrée, stock corrigé'); render({ silent: true }); } catch (e) { fail(e); }
+      });
+      upd();
+    });
+  }
 
   /* ---------- Ventes du service : caisse → recettes → stock ---------- */
   let salesDraft = {};

@@ -18,11 +18,11 @@
 <script>/* Tablette : écran large et tactile, ou ?tablette dans l'adresse pour la démo sur ordinateur */
 (function(){try{var q=location.search.indexOf('tablette')>=0;if(q)localStorage.setItem('restock.forceTablet','1');if(location.search.indexOf('telephone')>=0)localStorage.removeItem('restock.forceTablet');
 var f=localStorage.getItem('restock.forceTablet');var t=matchMedia('(min-width: 700px) and (pointer: coarse)').matches;if(t||f)document.documentElement.classList.add('tablet');}catch(e){}})();</script>
-<link rel="stylesheet" href="styles.css?v=5">
+<link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
 <main id="app" aria-live="polite"></main>
-<script src="data.js?v=5"></script>
-<script src="app.js?v=5"></script>
+<script src="data.js?v=6"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>

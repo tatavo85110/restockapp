@@ -462,6 +462,29 @@
     saveDemoPlats() { if (this.mode === 'demo') { const k = store.get('demoState', {}) || {}; k.plats = this.plats; store.set('demoState', Object.assign({ v: 1 }, k)); } },
 
     /* ---------- Inventaire groupé (fin de journée) ---------- */
+    /* ---------- Pertes et erreurs du jour (steak brûlé, casse, repas du personnel…) ---------- */
+    lossesToday() { const all = store.get('losses', []) || []; const t = todayISO(); return all.filter((l) => l.date === t); },
+    async declareLoss(d) {
+      // d = { productId, qty, reason } ou { platId, qty, reason } (plat entier refait : toute la recette)
+      let lines;
+      if (d.platId) { const pl = this.plat(d.platId); lines = (pl ? pl.recipe : []).filter((r) => this.product(r.productId) && r.qty > 0).map((r) => ({ p: this.product(r.productId), q: Math.round(r.qty * d.qty * 1000) / 1000 })); }
+      else lines = [{ p: this.product(d.productId), q: Number(d.qty) }];
+      lines = lines.filter((l) => l.p && l.q > 0);
+      if (!lines.length) return 0;
+      if (this.mode === 'live') {
+        for (let i = 0; i < lines.length; i += 10) {
+          const r = await create(T.moves, lines.slice(i, i + 10).map((l) => ({ Type: 'Sortie', 'Quantité': -l.q, Date: todayISO(), Origine: 'Perte', Motif: d.reason, Produit: [l.p.id] })));
+          r.records.forEach((rec, k) => (lines[i + k].p.moveIds = lines[i + k].p.moveIds || []).push(rec.id));
+        }
+      } else await sleep(450);
+      lines.forEach((l) => { l.p.qty = Math.round((l.p.qty - l.q) * 100) / 100; delete this.moves[l.p.id]; });
+      const all = (store.get('losses', []) || []).filter((l) => l.date >= todayISO().slice(0, 8));
+      all.unshift({ date: todayISO(), at: new Date().toTimeString().slice(0, 5), reason: d.reason, label: d.platId ? (this.plat(d.platId) || {}).name + ' refait' : lines[0].p.name, qty: d.qty, unit: d.platId ? 'assiette' : lines[0].p.unit, value: lines.reduce((t, l) => t + l.q * (l.p.price || 0), 0) });
+      store.set('losses', all.slice(0, 200));
+      this.saveDemo(); this.emit();
+      return lines.length;
+    },
+
     async saveInventory(counts) {
       const changes = counts.map((c) => { const p = this.product(c.id); return p ? { p, delta: Math.round((c.qty - p.qty) * 10) / 10 } : null; }).filter((x) => x && x.delta);
       if (this.mode === 'live') {
