@@ -1141,6 +1141,28 @@
   const num = (s) => parseFloat(String(s).replace(/\s/g, '').replace(',', '.'));
   function pickFile(accept, cb) { const i = document.createElement('input'); i.type = 'file'; i.accept = accept; i.onchange = () => { const f = i.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => cb(String(r.result), f.name); r.readAsText(f, 'utf-8'); }; i.click(); }
 
+  /* Lire un fichier Excel (.xlsx) ou CSV : renvoie les lignes à partir de l'en-tête trouvé */
+  let xlsxP = null;
+  const loadXLSX = () => xlsxP || (xlsxP = new Promise((res, rej) => { if (window.XLSX) return res(window.XLSX); const sc = document.createElement('script'); sc.src = 'vendor/xlsx.full.min.js'; sc.onload = () => res(window.XLSX); sc.onerror = () => { xlsxP = null; rej(new Error('Lecture Excel indisponible (connexion ?)')); }; document.head.appendChild(sc); }));
+  function pickTable(sheetHint, keys, cb) {
+    const i = document.createElement('input'); i.type = 'file'; i.accept = '.xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    const fromHeader = (rows) => { const k = rows.findIndex((r) => r.some((c) => keys.some((key) => norm(c).startsWith(key)))); return k < 0 ? null : rows.slice(k).map((r) => r.map((c) => (c == null ? '' : String(c)))); };
+    i.onchange = async () => {
+      const f = i.files[0]; if (!f) return;
+      try {
+        let rows = null;
+        if (/\.xlsx?$/i.test(f.name)) {
+          const X = await loadXLSX(); const wb = X.read(await f.arrayBuffer(), { type: 'array' });
+          const names = [...wb.SheetNames].sort((a, b) => (norm(b).includes(sheetHint) ? 1 : 0) - (norm(a).includes(sheetHint) ? 1 : 0));
+          for (const n of names) { rows = fromHeader(X.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: '' })); if (rows) break; }
+        } else rows = fromHeader(parseCSV(await f.text()));
+        if (!rows) { toast('Colonnes introuvables dans ce fichier', 'warn'); return; }
+        cb(rows);
+      } catch (e) { fail(e); }
+    };
+    i.click();
+  }
+
   routes.inventory = {
     tab: 'inventory', auth: true, live: true,
     render: () => {
@@ -1197,18 +1219,18 @@
       el.querySelector('[data-tools]').addEventListener('click', () => sheet(`<h3>Excel / Google Sheets</h3><p class="page-sub" style="margin-top:4px">Pour aller plus vite, compte sur un tableur puis importe le fichier. Format CSV (s'ouvre dans Excel et Google Sheets).</p>
         <div class="list" style="margin-top:14px">
           <button class="row press-soft" data-exp><span class="m-ico" style="background:var(--ok-bg);color:var(--ok)">${ic('download')}</span><span class="grow"><span class="title">Exporter le stock</span><span class="meta">Feuille d'inventaire à remplir (colonne « Quantité comptée »)</span></span></button>
-          <button class="row press-soft" data-imp><span class="m-ico" style="background:var(--orange-soft);color:var(--orange-deep)">${ic('upload')}</span><span class="grow"><span class="title">Importer l'inventaire</span><span class="meta">Le fichier rempli : les écarts apparaissent avant d'enregistrer</span></span></button>
+          <button class="row press-soft" data-imp><span class="m-ico" style="background:var(--orange-soft);color:var(--orange-deep)">${ic('upload')}</span><span class="grow"><span class="title">Importer l'inventaire</span><span class="meta">Excel (.xlsx) ou CSV rempli : les écarts apparaissent avant d'enregistrer</span></span></button>
         </div>`, (sh, close) => {
         sh.querySelector('[data-exp]').addEventListener('click', () => {
           downloadCSV('inventaire-restock-' + new Date().toISOString().slice(0, 10) + '.csv', [['Produit', 'Catégorie', 'Fournisseur', 'Unité', 'Stock théorique', 'Quantité comptée', 'Seuil d\'alerte', 'Prix HT']].concat(DB.products.map((p) => [p.name, p.cat, clean(DB.supplier(p.supplierId) && DB.supplier(p.supplierId).name), p.unit, String(p.qty).replace('.', ','), '', String(p.seuil).replace('.', ','), String(p.price).replace('.', ',')])));
           close(); toast('Fichier exporté');
         });
-        sh.querySelector('[data-imp]').addEventListener('click', () => pickFile('.csv,text/csv', (txt) => {
-          const rows = parseCSV(txt); const head = rows.shift().map(norm);
+        sh.querySelector('[data-imp]').addEventListener('click', () => pickTable('inventaire', ['produit'], (rows) => {
+          const head = rows.shift().map(norm);
           const iName = head.findIndex((h) => h.startsWith('produit') || h === 'nom'); const iQty = head.findIndex((h) => h.includes('compt')) >= 0 ? head.findIndex((h) => h.includes('compt')) : head.findIndex((h) => h.includes('quantit'));
           if (iName < 0 || iQty < 0) { toast('Colonnes « Produit » et « Quantité comptée » introuvables', 'warn'); return; }
           let n = 0, miss = 0;
-          rows.forEach((r) => { const q = num(r[iQty]); if (isNaN(q)) return; const p = DB.products.find((x) => norm(x.name) === norm(r[iName])); if (p) { invState.counts[p.id] = q; n++; } else miss++; });
+          rows.forEach((r) => { if (!String(r[iName]).trim()) return; const q = num(r[iQty]); if (isNaN(q)) return; const p = DB.products.find((x) => norm(x.name) === norm(r[iName])); if (p) { invState.counts[p.id] = q; n++; } else miss++; });
           invState.filter = 'Tous'; close(); render({ silent: true }); toast(`${n} quantité${n > 1 ? 's' : ''} importée${n > 1 ? 's' : ''}${miss ? ` · ${miss} produit${miss > 1 ? 's' : ''} inconnu${miss > 1 ? 's' : ''}` : ''}`, miss ? 'info' : 'ok');
         }));
       }));
@@ -1278,6 +1300,7 @@
             <button class="btn btn-primary press ripple-host" style="margin-top:10px" data-pending>Déduire ces ventes du stock</button>` : ''}
           ${DB.mode === 'demo' ? `<button class="btn btn-ghost press" style="margin-top:10px" data-sim>${ic('spark')}Simuler un service reçu de la caisse</button>` : `<button class="btn btn-ghost press" style="margin-top:10px" data-refresh>${ic('refresh')}Relever la caisse</button>`}
           <div class="section-head"><h2>Saisie manuelle</h2><span style="font-size:13px;color:var(--ink-2)">si la caisse n'est pas reliée</span></div>
+          <button class="btn btn-ghost press" style="margin-bottom:6px" data-impsales>${ic('upload')}Importer des ventes (Excel)</button>
           ${cats.map((c) => { const pls = DB.plats.filter((p) => p.cat === c); return pls.length ? `<div class="eyebrow" style="margin:12px 2px 6px">${c}s</div><div class="list">${pls.map((p) => `<div class="row" data-plat="${p.id}"><span class="grow"><span class="title">${esc(p.name)}</span><span class="meta">${p.recipe.length} ingrédient${p.recipe.length > 1 ? 's' : ''} · ${euro(p.price)}</span></span><div class="stepper sm"><button data-d="-1" aria-label="Moins">${ic('minus')}</button><output class="num">${salesDraft[p.id] || 0}</output><button data-d="1" aria-label="Plus">${ic('plus')}</button></div></div>`).join('')}</div>` : ''; }).join('')}
           <div data-usage></div>
           ${today.length ? `<div class="section-head"><h2>Déjà déduit aujourd'hui</h2></div><div class="list">${today.slice(0, 12).map((x) => { const pl = DB.plat(x.platId); return `<div class="row"><span class="m-ico" style="background:var(--neutral-bg)">${ic('check')}</span><span class="grow"><span class="title">${esc(pl ? pl.name : 'Plat')}</span><span class="meta">${esc(x.source)}</span></span><b class="num">× ${x.qty}</b></div>`; }).join('')}</div>` : ''}
@@ -1309,6 +1332,14 @@
         const items = DB.pendingSales().map((x) => ({ platId: x.platId, qty: x.qty, saleId: x.id }));
         try { const n = await btnLoading(pb, DB.recordSales(items, 'Caisse')); confetti(); toast(`Ventes déduites · ${n} mouvement${n > 1 ? 's' : ''} de stock`); render({ silent: true }); } catch (e) { fail(e); }
       });
+      el.querySelector('[data-impsales]').addEventListener('click', () => pickTable('ventes', ['code caisse', 'plat'], (rows) => {
+        const head = rows.shift().map(norm);
+        const iCode = head.findIndex((h) => h.startsWith('code')); const iPlat = head.findIndex((h) => h === 'plat' || h.startsWith('plat')); const iQ = head.findIndex((h) => h.includes('quantit'));
+        if (iQ < 0 || (iCode < 0 && iPlat < 0)) { toast('Colonnes « Plat » et « Quantité vendue » introuvables', 'warn'); return; }
+        let n = 0, miss = 0; salesDraft = {};
+        rows.forEach((r) => { const q = num(r[iQ]); if (isNaN(q) || q <= 0) return; const pl = DB.plats.find((x) => (iCode >= 0 && x.code && norm(x.code) === norm(r[iCode])) || (iPlat >= 0 && norm(x.name) === norm(r[iPlat]))); if (pl) { salesDraft[pl.id] = (salesDraft[pl.id] || 0) + Math.round(q); n += Math.round(q); } else miss++; });
+        render({ silent: true }); toast(`${n} plat${n > 1 ? 's' : ''} importé${n > 1 ? 's' : ''}${miss ? ` · ${miss} ligne${miss > 1 ? 's' : ''} inconnue${miss > 1 ? 's' : ''}` : ''} : vérifie puis enregistre`, miss ? 'info' : 'ok');
+      }));
       const sim = el.querySelector('[data-sim]'); sim && sim.addEventListener('click', async () => { await btnLoading(sim, DB.simulateCash()); toast('Service de midi reçu de la caisse', 'info'); render({ silent: true }); });
       const rf = el.querySelector('[data-refresh]'); rf && rf.addEventListener('click', async () => { try { await btnLoading(rf, DB.refreshSales()); render({ silent: true }); } catch (e) { fail(e); } });
     }
