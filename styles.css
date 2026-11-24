@@ -804,3 +804,7 @@ html.desktop .nb { position: absolute; right: 12px; top: 50%; margin-top: -9px; 
 
 /* Import de la journée */
 .day-sum .meta{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.4}
+
+/* Ajouter un fournisseur */
+.add-sup{width:100%;display:flex;gap:12px;align-items:center;border:1.5px dashed var(--orange,#F26A21);background:var(--orange-soft,#FDE6D6)}
+.add-sup .m-ico{background:var(--orange,#F26A21);color:#fff}

@@ -388,12 +388,12 @@
     /* ---------- Fournisseur (import de la configuration) ---------- */
     async upsertSupplier(d) {
       let s = this.suppliers.find((x) => x.name.toLowerCase().replace(/\s*\(fictif\)/, '') === d.name.toLowerCase());
-      const f = { Nom: d.name }; if (d.email) f['Email de commande'] = d.email; if (d.days) f['Jours de livraison'] = d.days; if (d.delay) f['Délai de livraison (jours)'] = Number(d.delay);
+      const f = { Nom: d.name }; if (d.email) f['Email de commande'] = d.email; if (d.days) f['Jours de livraison'] = d.days; if (d.delay) f['Délai de livraison (jours)'] = Number(d.delay); if (d.cat) f['Catégorie'] = d.cat;
       if (this.mode === 'live') {
         if (s) await patch(T.suppliers, [{ id: s.id, fields: f }]);
         else { const r = await create(T.suppliers, [f]); s = { id: r.records[0].id, cat: '' }; this.suppliers.push(s); }
       } else { await sleep(80); if (!s) { s = { id: fakeId(), cat: '' }; this.suppliers.push(s); } }
-      Object.assign(s, { name: s.name || d.name, email: d.email || s.email || '', days: d.days || s.days || '', delay: Number(d.delay) || s.delay || 1 });
+      Object.assign(s, { name: s.name || d.name, email: d.email || s.email || '', days: d.days || s.days || '', delay: Number(d.delay) || s.delay || 1, cat: d.cat || s.cat || '' });
       this.saveDemo();
       return s;
     },

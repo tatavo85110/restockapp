@@ -1060,9 +1060,10 @@
     auth: true, live: true, cls: 'no-nav',
     render: () => {
       const week = ['L', 'M', 'M', 'J', 'V', 'S', 'D']; const t = todayIdx();
-      return `<div class="back-row">${backBtn()}<span></span></div><h1 class="page-title">Fournisseurs</h1>
+      return `<div class="back-row">${backBtn()}<button class="btn btn-ghost btn-sm press" style="width:auto" data-add>${ic('plus')}Ajouter</button></div><h1 class="page-title">Fournisseurs</h1>
         <p class="page-sub">${DB.suppliers.length} fournisseurs · les jours de livraison en foncé.</p>
-        <div class="stack-cards stagger" style="margin-top:16px">${DB.suppliers.map((s) => {
+        <div class="stack-cards stagger" style="margin-top:16px">
+          <button class="card card-pad add-sup press-soft" data-add><span class="m-ico">${ic('plus')}</span><span class="grow" style="display:flex;flex-direction:column;text-align:left"><b>Ajouter un fournisseur</b><span style="font-size:13px;color:var(--ink-2)">Nom, e-mail de commande, jours de livraison</span></span>${ic('chev', 'chev')}</button>${DB.suppliers.map((s) => {
           const days = parseDays(s.days); const n = DB.products.filter((p) => p.supplierId === s.id).length; const alerts = DB.products.filter((p) => p.supplierId === s.id && DB.level(p) !== 'ok').length;
           return `<div class="card card-pad press-soft" data-s="${s.id}"><div style="display:flex;gap:12px;align-items:center">${supAvatar(s, 44)}<div style="flex:1;min-width:0"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(clean(s.name))}</div><div style="font-size:13px;color:var(--ink-2)">${esc(s.cat)} · ${n} produit${n > 1 ? 's' : ''}${alerts ? ` · <span style="color:var(--crit-ink)">${alerts} alerte${alerts > 1 ? 's' : ''}</span>` : ''}</div></div>${s.email ? `<a class="icon-btn press" href="mailto:${esc(s.email)}" aria-label="Écrire à ${esc(clean(s.name))}">${ic('mail')}</a>` : ''}</div>
             <div class="days">${week.map((l, i) => `<span class="${days.includes(i) ? 'on' : ''} ${i === t ? 'today' : ''}">${l}</span>`).join('')}<span style="background:none;width:auto;color:var(--ink-2);font-weight:500;margin-left:auto">Délai ${s.delay} j</span></div></div>`;
@@ -1070,6 +1071,7 @@
     },
     mount: (el) => {
       bindBack(el);
+      el.querySelectorAll('[data-add]').forEach((b) => b.addEventListener('click', () => openNewSupplier()));
       el.querySelectorAll('[data-s]').forEach((c) => c.addEventListener('click', (e) => {
         if (e.target.closest('a')) return;
         const s = DB.supplier(c.dataset.s); const prods = DB.products.filter((p) => p.supplierId === s.id);
@@ -1091,6 +1093,33 @@
       }));
     }
   };
+
+  /* ---------- Nouveau fournisseur (synchronisé avec Airtable) ---------- */
+  function openNewSupplier() {
+    const cats = [...new Set(DB.suppliers.map((s) => s.cat).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'));
+    const full = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']; let cur = [];
+    sheet(`<h3>Nouveau fournisseur</h3><p class="page-sub" style="margin-top:4px">Il sera ajouté à ta base Airtable et proposé pour les produits et les commandes.</p>
+      <div class="field"><label for="ns-name">Nom du fournisseur</label><input id="ns-name" placeholder="ex. Boucherie Martin" autocomplete="organization"><span class="err"></span></div>
+      <div class="field"><label for="ns-mail">E-mail de commande</label><input id="ns-mail" type="email" inputmode="email" placeholder="commandes@fournisseur.fr"><span class="err"></span></div>
+      <div class="field"><label for="ns-cat">Catégorie</label><input id="ns-cat" list="ns-cats" placeholder="ex. Viandes"><datalist id="ns-cats">${cats.map((c) => `<option value="${esc(c)}">`).join('')}</datalist></div>
+      <div class="field"><label>Jours de livraison</label><div class="day-pick">${full.map((l, i) => `<button data-day="${i}" aria-pressed="false">${l}</button>`).join('')}</div></div>
+      <div class="field"><label for="ns-delay">Délai de livraison (jours)</label><input id="ns-delay" type="number" inputmode="numeric" min="0" max="30" value="1"></div>
+      <button class="btn btn-primary press ripple-host" style="margin-top:8px" data-ok>${ic('plus')}Ajouter le fournisseur</button>`,
+    (sh, close) => {
+      sh.querySelectorAll('[data-day]').forEach((b) => b.addEventListener('click', () => { const i = Number(b.dataset.day); cur = cur.includes(i) ? cur.filter((x) => x !== i) : [...cur, i].sort(); b.classList.toggle('on'); b.setAttribute('aria-pressed', cur.includes(i)); haptic(6); }));
+      const ok = sh.querySelector('[data-ok]');
+      ok.addEventListener('click', async () => {
+        const name = sh.querySelector('#ns-name').value.trim(), email = sh.querySelector('#ns-mail').value.trim();
+        const setErr = (id, m) => { const f = sh.querySelector(id).closest('.field'); f.classList.toggle('invalid', !!m); f.querySelector('.err').textContent = m || ''; };
+        setErr('#ns-name', name ? '' : 'Indique un nom'); setErr('#ns-mail', !email || /^\S+@\S+\.\S+$/.test(email) ? '' : 'E-mail invalide');
+        if (!name || (email && !/^\S+@\S+\.\S+$/.test(email))) { haptic(20); return; }
+        if (DB.suppliers.some((x) => norm(x.name) === norm(name))) { setErr('#ns-name', 'Ce fournisseur existe déjà'); return; }
+        const days = cur.length === 7 ? 'Tous les jours' : cur.map((x) => full[x]).join(', ');
+        try { await btnLoading(ok, DB.upsertSupplier({ name, email, cat: sh.querySelector('#ns-cat').value.trim(), days, delay: num(sh.querySelector('#ns-delay').value) || 1 })); DB.emit(); close(); haptic([15, 30, 15]); toast(`${name} ajouté`); render({ silent: true }); } catch (e) { fail(e); }
+      });
+      setTimeout(() => sh.querySelector('#ns-name').focus(), 350);
+    });
+  }
 
   /* ---------- Nouveau produit (depuis un bon, le stock…) synchronisé avec Airtable ---------- */
   function openNewProduct(pre, cb) {
