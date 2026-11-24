@@ -690,3 +690,114 @@ svg.chev { width: 18px; height: 18px; flex: none; color: var(--ink-3); }
 .reason-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .reason-chips .chip { margin: 0; }
 .sheet [data-qo] { display: none; }
+
+/* ================= Ordinateur : vraie interface large avec barre latérale ================= */
+.nav-brand, .nav-foot, .nav-scan-l { display: none; }
+html.desktop body { background: var(--bg); }
+html.desktop .nav, html.desktop .nav.hidden {
+  left: 0; top: 0; bottom: 0; right: auto; width: 248px; height: auto; transform: none; opacity: 1;
+  border-radius: 0; border: 0; border-right: 1px solid var(--line); box-shadow: none; background: #FFFCF8;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 22px 14px 18px;
+}
+html.desktop #app:not(.side) .nav { display: none; }
+html.desktop .nav-brand { display: flex; align-items: center; gap: 8px; padding: 0 10px 18px; color: var(--ink); }
+html.desktop .nav-brand svg { width: 40px; height: 40px; }
+html.desktop .nav-brand .wordmark { font-size: 26px; }
+html.desktop .nav-scan { order: 1; width: auto; height: 48px; border-radius: 14px; justify-self: auto; gap: 10px; font-weight: 700; font-size: 15px; margin: 0 0 14px; color: var(--ink); }
+html.desktop .nav-scan::before { display: none; }
+html.desktop .nav-scan-l { display: inline; }
+html.desktop .nav-scan svg { width: 22px; height: 22px; }
+html.desktop .nav-scan:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(242,106,33,.45); }
+html.desktop .nav-brand { order: 0; }
+html.desktop .nav-item { order: 2; flex-direction: row; justify-content: flex-start; gap: 12px; height: 46px; padding: 0 14px; border-radius: 12px; font-size: 15px; font-weight: 600; letter-spacing: 0; flex: none; transition: background-color .2s, color .2s; }
+html.desktop .nav-item svg { width: 21px; height: 21px; }
+html.desktop .nav-item:hover { background: var(--neutral-bg); color: var(--ink); }
+html.desktop .nav-item.active { background: var(--orange-soft); color: var(--orange-deep); }
+html.desktop .nav-item.active svg { transform: none; }
+html.desktop .nav-indicator { display: none; }
+html.desktop .nav-foot { order: 3; margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 12px 10px 0; border-top: 1px solid var(--line); font-size: 13.5px; font-weight: 700; }
+html.desktop .nav-foot .avatar { width: 36px; height: 36px; font-size: 13px; background: var(--cafe); color: var(--creme); flex: none; }
+html.desktop .nav-foot small { display: block; font-weight: 500; color: var(--ink-3); font-size: 12px; }
+
+html.desktop #app.side .screen { left: 248px; }
+html.desktop .screen { padding: 32px max(40px, calc((100% - 1080px) / 2)) 48px; font-size: 16px; }
+html.desktop #app.side .sheet-backdrop { left: 0; }
+html.desktop .screen.full { padding: 0; }
+html.desktop .page-title { font-size: 34px; }
+html.desktop .topbar .wordmark { display: none; }
+html.desktop .stats { grid-template-columns: repeat(4, minmax(0,1fr)); }
+html.desktop .alert-grid, html.desktop .recipe-grid { grid-template-columns: repeat(3, minmax(0,1fr)); }
+html.desktop .sticky-foot { max-width: 1080px; }
+html.desktop .row:hover, html.desktop .press-soft:hover { background-color: rgba(42,28,22,.025); }
+html.desktop .btn:hover { filter: brightness(1.04); }
+html.desktop button, html.desktop a { cursor: pointer; }
+/* Fenêtres : centrées comme une boîte de dialogue au lieu d'un tiroir */
+html.desktop .sheet { left: 50%; right: auto; top: 50%; bottom: auto; width: min(560px, calc(100% - 48px)); margin-left: 0; transform: translate(-50%, -50%); border-radius: 22px; max-height: 84vh; padding: 22px 26px 24px; animation: dlgIn .35s var(--ease) both; box-shadow: 0 30px 80px rgba(31,20,16,.3); }
+html.desktop .sheet.out { animation: dlgOut .22s var(--ease) both; }
+html.desktop .sheet .grab { display: none; }
+@keyframes dlgIn { from { opacity: 0; transform: translate(-50%, -46%) scale(.97); } }
+@keyframes dlgOut { to { opacity: 0; transform: translate(-50%, -48%) scale(.98); } }
+/* Pages sans barre (connexion, tuto) : contenu centré */
+html.desktop #app:not(.side) .screen:not(.full) { padding-left: calc(50% - 230px); padding-right: calc(50% - 230px); }
+/* largeur utile = écran moins la barre latérale (le % du padding se calcule sur #app) */
+html.desktop #app.side .screen { padding-left: max(40px, calc((100% - 248px - 1080px) / 2)); padding-right: max(40px, calc((100% - 248px - 1080px) / 2)); }
+/* Connexion : écran coupé en deux */
+html.desktop .screen.full:has(.login-head) { display: grid; grid-template-columns: 1fr 1fr; align-items: stretch; }
+html.desktop .screen.full .login-head { height: 100%; min-height: 100%; border-radius: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+html.desktop .screen.full .login-body { align-self: center; width: 100%; max-width: 460px; justify-self: center; padding: 40px 32px; }
+/* Tuto et démarrage : colonne centrée */
+html.desktop .screen.full:has(.onb-top) > * { max-width: 560px; margin-left: auto; margin-right: auto; }
+/* Tablette en portrait : barre latérale plus fine */
+@media (max-width: 1000px) {
+  html.desktop .nav, html.desktop .nav.hidden { width: 212px; padding: 18px 10px; }
+  html.desktop #app.side .screen { left: 212px; padding-left: 28px; padding-right: 28px; }
+  html.desktop .alert-grid, html.desktop .recipe-grid { grid-template-columns: 1fr 1fr; }
+  html.desktop .stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+html.tablet.desktop .nav-item { height: 52px; font-size: 16px; }
+html.tablet.desktop .nav-scan { height: 54px; }
+
+/* ================= Barre de menu v3 (téléphone) ================= */
+.nav { grid-template-columns: 1fr 1fr 84px 1fr 1fr; height: 74px; padding: 0 6px; border-radius: 28px; overflow: visible; }
+.nav-desk { display: none !important; }
+.nav-indicator { display: none; }
+.nav-item { gap: 4px; font-size: 11px; font-weight: 600; letter-spacing: 0; color: var(--ink-3); }
+.nav-item .ni { position: relative; width: 54px; height: 30px; border-radius: 99px; display: flex; align-items: center; justify-content: center; transition: background-color .35s var(--ease), transform .3s var(--spring); }
+.nav-item .ni svg { width: 22px; height: 22px; transition: color .25s, transform .35s var(--spring); }
+.nav-item.active { color: var(--ink); font-weight: 700; }
+.nav-item.active .ni { background: var(--orange-soft); }
+.nav-item.active .ni svg, .nav-item.active svg { color: var(--orange-deep); transform: none; }
+.nav-item:active .ni { transform: scale(.88); }
+.nl { white-space: nowrap; }
+.nb { position: absolute; top: -5px; right: 2px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; background: var(--orange); color: #fff; font-size: 10.5px; font-weight: 800; font-style: normal; display: none; align-items: center; justify-content: center; box-shadow: 0 0 0 2.5px #fff; font-variant-numeric: tabular-nums; }
+.nb.on { display: flex; animation: nbPop .5s var(--spring) both; }
+.nb.warn { background: var(--crit); }
+.nb.ia { background: var(--ia); }
+@keyframes nbPop { from { transform: scale(0); } }
+.nav-scan { width: auto; height: 100%; background: none; box-shadow: none; border-radius: 0; flex-direction: column; justify-content: flex-start; gap: 4px; color: var(--orange-deep); }
+.nav-scan::before { display: none; }
+.nav-scan .ns-btn { width: 60px; height: 60px; margin-top: -24px; border-radius: 22px; background: var(--orange); color: var(--ink); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 5px var(--bg), 0 10px 22px rgba(242,106,33,.45); transition: transform .25s var(--spring); position: relative; }
+.nav-scan .ns-btn::after { content: ''; position: absolute; inset: -4px; border-radius: 26px; border: 2px solid var(--orange); opacity: 0; animation: scanHalo 3s ease-out infinite; }
+.nav-scan .ns-btn svg { width: 28px; height: 28px; }
+.nav-scan:active .ns-btn { transform: scale(.9) rotate(-6deg); }
+.nav-scan-l { display: inline !important; font-size: 11px; font-weight: 800; }
+.nav-scan-l i { display: none; font-style: normal; }
+.nav-scan:active { transform: none; }
+
+/* Barre latérale (ordinateur / tablette) avec la nouvelle structure */
+html.desktop .nav-desk { display: flex !important; }
+html.desktop .nav-item { color: var(--ink-2); }
+html.desktop .nav-item .ni { width: auto; height: auto; background: none !important; position: static; }
+html.desktop .nav-item .nl { flex: 1; }
+html.desktop .nb { position: static; box-shadow: none; }
+html.desktop .nav-scan { flex-direction: row; justify-content: center; height: 50px; background: var(--orange); color: var(--ink); border-radius: 14px; box-shadow: 0 8px 18px rgba(242,106,33,.35); }
+html.desktop .nav-scan .ns-btn { width: auto; height: auto; margin: 0; background: none; box-shadow: none; border-radius: 0; }
+html.desktop .nav-scan .ns-btn::after { display: none; }
+html.desktop .nav-scan .ns-btn svg { width: 22px; height: 22px; }
+html.desktop .nav-scan-l { font-size: 15px; }
+html.desktop .nav-scan-l i { display: inline; }
+html.desktop .screen.full:has(.onb-top) > .onb { overflow: hidden; }
+@media (max-width: 1279px) { html.desktop .alert-grid, html.desktop .recipe-grid { grid-template-columns: 1fr 1fr; } }
+html.desktop .nav-item { position: relative; }
+html.desktop .nb { position: absolute; right: 12px; top: 50%; margin-top: -9px; }

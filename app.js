@@ -224,14 +224,24 @@
 
   const nav = document.createElement('nav');
   nav.className = 'nav hidden'; nav.setAttribute('aria-label', 'Navigation principale');
+  const navItem = (tab, href, icon, label, extra = '') => `<a class="nav-item ${extra}" data-tab="${tab}" href="${href}"><span class="ni">${ic(icon)}<b class="nb" data-nb="${tab}"></b></span><span class="nl">${label}</span></a>`;
   nav.innerHTML = `
-    <a class="nav-item" data-tab="home" href="#/home">${ic('home')}Accueil</a>
-    <a class="nav-item" data-tab="stock" href="#/stock">${ic('box')}Stock</a>
-    <a class="nav-scan" href="#/scan" aria-label="Scanner un bon">${ic('scan')}</a>
-    <a class="nav-item" data-tab="inventory" href="#/inventory">${ic('tally')}Inventaire</a>
-    <a class="nav-item" data-tab="orders" href="#/orders">${ic('clip')}Commandes</a>
-    <a class="nav-item" data-tab="profile" href="#/profile">${ic('user')}Profil</a>
-    <span class="nav-indicator"></span>`;
+    <a class="nav-brand" href="#/home" aria-label="Accueil Restock">${coco('idle', 40)}<span class="wordmark"><b>re</b>stock</span></a>
+    ${navItem('home', '#/home', 'home', 'Accueil')}
+    ${navItem('stock', '#/stock', 'box', 'Stock')}
+    <a class="nav-scan" href="#/scan" aria-label="Scanner un bon"><span class="ns-btn">${ic('scan')}</span><span class="nav-scan-l">Scanner<i> un bon</i></span></a>
+    ${navItem('inventory', '#/inventory', 'tally', 'Inventaire')}
+    ${navItem('orders', '#/orders', 'clip', 'Commandes')}
+    ${navItem('profile', '#/profile', 'user', 'Profil', 'nav-desk')}
+    <div class="nav-foot"><span class="avatar">LE</span><span>L'Entrecôte Nantes<small>Restock · v2</small></span></div>`;
+  function navBadges() {
+    if (!DB.ready) return;
+    const set = (k, n, kind) => { const b = nav.querySelector(`[data-nb="${k}"]`); if (!b) return; b.textContent = n > 9 ? '9+' : n || ''; b.className = 'nb' + (n ? ' on ' + (kind || '') : ''); };
+    set('stock', DB.products.filter((p) => DB.level(p) !== 'ok').length, 'warn');
+    set('orders', DB.orders.filter((o) => o.status === 'Brouillon').length);
+    set('inventory', DB.pendingSales ? DB.pendingSales().length : 0, 'ia');
+  }
+  DB.on && DB.on(navBadges);
   app.appendChild(nav);
   nav.querySelector('.nav-scan').addEventListener('click', () => (nextTransition = 'up'));
   function setNav(tab, show) {
@@ -241,8 +251,7 @@
       a.classList.toggle('active', on);
       if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
-    const act = nav.querySelector('.nav-item.active'); const ind = nav.querySelector('.nav-indicator');
-    if (act) { ind.style.opacity = 1; ind.style.transform = `translateX(${act.offsetLeft + act.offsetWidth / 2 - 2}px)`; } else ind.style.opacity = 0;
+    navBadges();
   }
 
   function parse() {
@@ -293,7 +302,10 @@
     }
     if (current && current.cleanup) { try { current.cleanup(); } catch (e) {} }
     current = { name: r.name, param: r.param, el, cleanup: null };
-    setNav(def.tab || null, !!def.tab);
+    const desk = document.documentElement.classList.contains('desktop');
+    const side = desk && (!!def.tab || (!!def.auth && !!S.get('user', null)));
+    app.classList.toggle('side', side);
+    setNav(def.tab || null, !!def.tab || side);
     if (def.mount) current.cleanup = def.mount(el, r.param) || null;
     if (!opts.silent) countUp(el);
     if (def.ptr) pullToRefresh(el);

@@ -17,12 +17,12 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Fredoka:wght@600;700&display=swap" rel="stylesheet">
 <script>/* Tablette : écran large et tactile, ou ?tablette dans l'adresse pour la démo sur ordinateur */
 (function(){try{var q=location.search.indexOf('tablette')>=0;if(q)localStorage.setItem('restock.forceTablet','1');if(location.search.indexOf('telephone')>=0)localStorage.removeItem('restock.forceTablet');
-var f=localStorage.getItem('restock.forceTablet');var t=matchMedia('(min-width: 700px) and (pointer: coarse)').matches;if(t||f)document.documentElement.classList.add('tablet');}catch(e){}})();</script>
-<link rel="stylesheet" href="styles.css?v=6">
+var f=localStorage.getItem('restock.forceTablet');var t=matchMedia('(min-width: 700px) and (pointer: coarse)').matches;var d=matchMedia('(min-width: 760px)').matches&&!(localStorage.getItem('restock.forceMobile'));var h=document.documentElement.classList;if(t||f||d)h.add('tablet');if(d)h.add('desktop');}catch(e){}})();</script>
+<link rel="stylesheet" href="styles.css?v=9">
 </head>
 <body>
 <main id="app" aria-live="polite"></main>
-<script src="data.js?v=6"></script>
-<script src="app.js?v=6"></script>
+<script src="data.js?v=9"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>
