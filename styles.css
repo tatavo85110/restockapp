@@ -801,3 +801,6 @@ html.desktop .screen.full:has(.onb-top) > .onb { overflow: hidden; }
 @media (max-width: 1279px) { html.desktop .alert-grid, html.desktop .recipe-grid { grid-template-columns: 1fr 1fr; } }
 html.desktop .nav-item { position: relative; }
 html.desktop .nb { position: absolute; right: 12px; top: 50%; margin-top: -9px; }
+
+/* Import de la journée */
+.day-sum .meta{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.4}

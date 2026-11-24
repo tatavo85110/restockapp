@@ -1164,6 +1164,91 @@
     i.click();
   }
 
+  const todayStr = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  /* Lire toutes les feuilles d'un classeur (ou un CSV) */
+  function pickBook(cb) {
+    const i = document.createElement('input'); i.type = 'file';
+    i.onchange = async () => {
+      const f = i.files[0]; if (!f) return;
+      if (!/\.(xlsx?|csv|txt)$/i.test(f.name)) { toast('Choisis un fichier Excel (.xlsx) ou CSV', 'warn'); return; }
+      try {
+        let book;
+        if (/\.xlsx?$/i.test(f.name)) { const X = await loadXLSX(); const wb = X.read(await f.arrayBuffer(), { type: 'array' }); book = wb.SheetNames.map((n) => ({ name: n, rows: X.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: '' }) })); }
+        else book = [{ name: f.name, rows: parseCSV(await f.text()) }];
+        book.forEach((sh) => (sh.rows = sh.rows.map((r) => r.map((c) => (c == null ? '' : String(c))))));
+        cb(book, f.name);
+      } catch (e) { fail(e); }
+    };
+    i.click();
+  }
+  /* Trouve un tableau dont l'en-tête contient toutes les colonnes demandées (tests sur le nom normalisé) */
+  function findTable(book, tests) {
+    for (const sh of book) {
+      const k = sh.rows.findIndex((r) => tests.every((t) => r.some((c) => t(norm(c)))));
+      if (k >= 0) { const head = sh.rows[k].map(norm); return { sheet: sh.name, head, rows: sh.rows.slice(k + 1), col: (t) => head.findIndex(t) }; }
+    }
+    return null;
+  }
+  /* Une seule importation pour les 3 étapes de fin de journée */
+  function importDay() {
+    pickBook((book, fname) => {
+      const sales = findTable(book, [(h) => h.startsWith('quantite vendue') || (h.includes('quantit') && h.includes('vend')), (h) => h.startsWith('code') || h.startsWith('plat')]);
+      const losses = findTable(book, [(h) => h.startsWith('motif'), (h) => h.includes('perdu') || h.startsWith('quantit')]);
+      const inv = findTable(book, [(h) => h.startsWith('produit'), (h) => h.includes('compt')]);
+      const findPlat = (code, name) => DB.plats.find((x) => (code && x.code && norm(x.code) === norm(code)) || (name && norm(x.name) === norm(name)));
+      const findProd = (name) => { const n = norm(name); return n ? DB.products.find((x) => norm(x.name) === n) || DB.products.find((x) => norm(x.name).startsWith(n)) : null; };
+      let miss = 0;
+      // Étape 1 : ventes
+      const saleItems = [];
+      if (sales) {
+        const iC = sales.col((h) => h.startsWith('code')), iP = sales.col((h) => h === 'plat' || h.startsWith('plat')), iQ = sales.col((h) => h.startsWith('quantite vendue') || (h.includes('quantit') && h.includes('vend')));
+        sales.rows.forEach((r) => { const q = num(r[iQ]); if (isNaN(q) || q <= 0) return; const pl = findPlat(iC >= 0 ? r[iC] : '', iP >= 0 ? r[iP] : ''); if (!pl) { const lbl = norm(String(r[iP] || r[iC] || '')); if (lbl && !lbl.startsWith('total')) miss++; return; } const ex = saleItems.find((x) => x.platId === pl.id); if (ex) ex.qty += Math.round(q); else saleItems.push({ platId: pl.id, qty: Math.round(q) }); });
+      }
+      // Étape 2 : pertes
+      const lossItems = [];
+      if (losses) {
+        const iN = losses.col((h) => h.startsWith('produit') || h.startsWith('plat') || h === 'nom'), iQ = losses.col((h) => h.includes('perdu') || h.startsWith('quantit')), iM = losses.col((h) => h.startsWith('motif'));
+        losses.rows.forEach((r) => { const q = num(r[iQ]); if (isNaN(q) || q <= 0 || !String(r[iN] || '').trim()) return; const reason = REASONS.find((x) => norm(x) === norm(r[iM])) || REASONS.find((x) => norm(r[iM]) && norm(x).startsWith(norm(r[iM]).split(/[ \/]/)[0])) || 'Autre';
+          const pr = findProd(r[iN]); if (pr) { lossItems.push({ productId: pr.id, qty: q, reason, label: pr.name, unit: pr.unit }); return; }
+          const pl = findPlat('', r[iN]); if (pl) { lossItems.push({ platId: pl.id, qty: q, reason, label: pl.name + ' refait', unit: 'assiette' }); return; } miss++; });
+      }
+      // Étape 3 : comptage
+      const counts = {};
+      if (inv) {
+        const iN = inv.col((h) => h.startsWith('produit')), iQ = inv.col((h) => h.includes('compt'));
+        inv.rows.forEach((r) => { if (!String(r[iN] || '').trim()) return; const q = num(r[iQ]); if (isNaN(q)) return; const pr = DB.products.find((x) => norm(x.name) === norm(r[iN])); if (pr) counts[pr.id] = q; else miss++; });
+      }
+      const nSold = saleItems.reduce((t, x) => t + x.qty, 0), nCount = Object.keys(counts).length;
+      if (!nSold && !lossItems.length && !nCount) { toast('Rien trouvé : il faut un onglet ventes, pertes ou inventaire', 'warn'); return; }
+      const already = DB.sales.filter((x) => x.done && x.date === todayStr()).length;
+      const line = (n, ok, title, meta) => `<div class="row"><span class="m-ico" style="background:${ok ? 'var(--ok-bg)' : 'var(--neutral-bg)'};color:${ok ? 'var(--ok)' : 'var(--ink-3)'}">${ok ? ic('check') : ic('minus')}</span><span class="grow"><span class="title">${n}. ${title}</span><span class="meta">${meta}</span></span></div>`;
+      sheet(`<h3>Importer la journée</h3><p class="page-sub" style="margin-top:4px">${esc(fname)}</p>
+        <div class="list day-sum" style="margin-top:12px">
+          ${line(1, nSold, 'Ventes de la caisse', nSold ? `${nSold} plat${nSold > 1 ? 's' : ''} vendu${nSold > 1 ? 's' : ''} · les ingrédients seront retirés du stock` : 'Aucun onglet de ventes trouvé')}
+          ${line(2, lossItems.length, 'Pertes et erreurs du jour', lossItems.length ? lossItems.map((l) => `${esc(l.label)} −${nf(l.qty)} ${esc(unitLabel(l.unit, l.qty))} (${esc(l.reason)})`).join('<br>') : 'Aucun onglet de pertes trouvé')}
+          ${line(3, nCount, 'Vérifier les quantités', nCount ? `${nCount} quantité${nCount > 1 ? 's' : ''} comptée${nCount > 1 ? 's' : ''} · les écarts restants s'affichent pour validation` : 'Aucun onglet d\'inventaire trouvé')}
+        </div>
+        ${already && nSold ? `<p style="font-size:13.5px;color:var(--crit-ink);margin:12px 2px 0">Attention : des ventes sont déjà enregistrées aujourd'hui. Elles seront ajoutées une deuxième fois.</p>` : ''}
+        ${miss ? `<p style="font-size:13px;color:var(--ink-2);margin:10px 2px 0">${miss} ligne${miss > 1 ? 's' : ''} non reconnue${miss > 1 ? 's' : ''}, ignorée${miss > 1 ? 's' : ''}.</p>` : ''}
+        <button class="btn btn-primary press ripple-host" style="margin-top:14px" data-apply>Tout appliquer</button>`,
+      (sh, close) => {
+        const b = sh.querySelector('[data-apply]');
+        b.addEventListener('click', async () => {
+          try {
+            await btnLoading(b, (async () => {
+              if (saleItems.length) await DB.recordSales(saleItems, 'Import Excel');
+              for (const l of lossItems) await DB.declareLoss(l.platId ? { platId: l.platId, qty: l.qty, reason: l.reason } : { productId: l.productId, qty: l.qty, reason: l.reason });
+            })());
+            invState.counts = counts; invState.filter = 'Tous'; salesDraft = {};
+            close(); haptic([15, 30, 15]); render({ silent: true });
+            const left = Object.entries(counts).filter(([id, q]) => { const p = DB.product(id); return p && Math.abs(q - p.qty) > 0.001; }).length;
+            toast(`Journée importée · ${left} écart${left > 1 ? 's' : ''} à valider en étape 3`);
+          } catch (e) { fail(e); }
+        });
+      });
+    });
+  }
+
   routes.inventory = {
     tab: 'inventory', auth: true, live: true,
     render: () => {
@@ -1174,6 +1259,9 @@
       const filters = ['À vérifier', 'Tous', ...[...new Set(DB.products.map((p) => p.cat))].sort((a, b) => a.localeCompare(b, 'fr'))];
       return `<div class="topbar"><h1 class="page-title" style="margin:0">Inventaire</h1><button class="btn btn-ghost btn-sm press" style="width:auto" data-tools>${ic('download')}Excel</button></div>
         <p class="page-sub">Fin de journée : 3 étapes pour que le stock de demain matin soit juste.</p>
+        <button class="card card-pad day-import press-soft" data-day style="width:100%;text-align:left;display:flex;gap:12px;align-items:center;margin-top:12px">
+          <span class="m-ico" style="background:var(--orange-soft);color:var(--orange-deep)">${ic('upload')}</span>
+          <span class="grow" style="display:flex;flex-direction:column"><b>Importer la journée (Excel)</b><span style="font-size:13px;color:var(--ink-2)">Un seul fichier remplit les étapes 1, 2 et 3</span></span>${ic('chev', 'chev')}</button>
         <div class="step-h"><span>1</span>Ventes de la caisse</div>
         <button class="card card-pad sales-card press-soft" data-go="/sales" style="width:100%;text-align:left">
           <span class="m-ico" style="background:var(--ia-bg);color:var(--ia)">${ic('receipt')}</span>
@@ -1220,6 +1308,7 @@
         try { const n = await btnLoading(save, DB.saveInventory(counts)); invState.counts = {}; haptic([15, 30, 15]); toast(`Inventaire enregistré · ${n} correction${n > 1 ? 's' : ''}`); render({ silent: true }); } catch (e) { fail(e); }
       });
       el.querySelector('[data-loss]').addEventListener('click', () => openLoss());
+      el.querySelector('[data-day]').addEventListener('click', () => importDay());
       el.querySelector('[data-tools]').addEventListener('click', () => sheet(`<h3>Excel / Google Sheets</h3><p class="page-sub" style="margin-top:4px">Pour aller plus vite, compte sur un tableur puis importe le fichier. Format CSV (s'ouvre dans Excel et Google Sheets).</p>
         <div class="list" style="margin-top:14px">
           <button class="row press-soft" data-exp><span class="m-ico" style="background:var(--ok-bg);color:var(--ok)">${ic('download')}</span><span class="grow"><span class="title">Exporter le stock</span><span class="meta">Feuille d'inventaire à remplir (colonne « Quantité comptée »)</span></span></button>
