@@ -11,8 +11,53 @@
   const T = {
     restaurants: 'tblBrmT6BE44zr02H', users: 'tblyqT33TW2q7OKOl', suppliers: 'tblHoDAFWL3kKT4CO',
     products: 'tblbEa4ULdsrZ4YDI', moves: 'tblrRxnGz9g7NIXc6', bons: 'tblI0Jw9UjhtFn9Jw',
-    bonLines: 'tblUKMghDaTxxLhF8', orders: 'tblMIwvcclRHgJBJc', orderLines: 'tblh8v2DGszbDveOR'
+    bonLines: 'tblUKMghDaTxxLhF8', orders: 'tblMIwvcclRHgJBJc', orderLines: 'tblh8v2DGszbDveOR',
+    plats: 'tblhxPLxlMEdrN5UK', recipe: 'tbl7X7V64Yu7BkYB2', sales: 'tblcbdhXvXFzH9Pdn'
   };
+  /* Carte et fiches recettes (quantité par portion, en unité de stock) */
+  const demoPlats = [
+    ['recoxSI9QFF0y542p', 'Entrecôte, frites et salade aux noix', 'Plat', 29.5, 'PLAT-ENTRECOTE'],
+    ['rectY3NPHxQPKpS37', 'Profiteroles au chocolat', 'Dessert', 9.5, 'DES-PROFITEROLES'],
+    ['recsUhvD7fqkw9EkO', 'Vacherin glacé', 'Dessert', 9, 'DES-VACHERIN'],
+    ['recjpmxI7m1c6kOzv', 'Sorbet citron', 'Dessert', 7.5, 'DES-SORBET'],
+    ['recZ4sd4zFR5tOEjo', 'Ananas au kirsch', 'Dessert', 8, 'DES-ANANAS'],
+    ['recCeRRcZwfqyWJbc', 'Café', 'Boisson', 2.5, 'BOI-CAFE'],
+    ['rec4SaByycdhWZwDn', "Bordeaux de L'Entrecôte 37,5cl", 'Boisson', 16, 'VIN-BDX-37'],
+    ['recQkQ9BnM4Tv1FDE', 'Eau minérale 100cl', 'Boisson', 5, 'BOI-EAU-1L']
+  ];
+  const demoRecipe = [
+    ['recoxSI9QFF0y542p', 'rec0XVIgXgjFHuSSn', 0.18],
+    ['recoxSI9QFF0y542p', 'recUjKDXZWL8kKcZS', 0.3],
+    ['recoxSI9QFF0y542p', 'recDyGUvgyJIIczwN', 0.05],
+    ['recoxSI9QFF0y542p', 'rec6DuU3s0A0sOw0x', 0.2],
+    ['recoxSI9QFF0y542p', 'recwSAd81iy3mQHCR', 0.012],
+    ['recoxSI9QFF0y542p', 'recnwJTAMBWQpyxaO', 0.01],
+    ['recoxSI9QFF0y542p', 'reckPVA1Ge8txncmG', 0.005],
+    ['recoxSI9QFF0y542p', 'reczZUhIW5Kvhk3EJ', 0.004],
+    ['recoxSI9QFF0y542p', 'reckzeecMdLPcIR9k', 0.025],
+    ['recoxSI9QFF0y542p', 'recPGz7FiaCOwNVLf', 0.008],
+    ['recoxSI9QFF0y542p', 'recBfYfIgv9gNQyYb', 0.04],
+    ['recoxSI9QFF0y542p', 'rec1FBH6zueU6Ug2R', 0.03],
+    ['recoxSI9QFF0y542p', 'recZaKzhCmhXroZX3', 0.003],
+    ['recoxSI9QFF0y542p', 'rechjBJBVOOEP7ZV9', 0.02],
+    ['recoxSI9QFF0y542p', 'recParcJTIuNZD6ew', 0.25],
+    ['recoxSI9QFF0y542p', 'recpuuJAi15nIx3bq', 0.004],
+    ['recoxSI9QFF0y542p', 'recOyglVwU1M1kTsO', 0.001],
+    ['rectY3NPHxQPKpS37', 'recurV7ruNrM5NAjK', 3],
+    ['rectY3NPHxQPKpS37', 'rec9ZJTTkRnmpg0Px', 0.12],
+    ['rectY3NPHxQPKpS37', 'recgBzOG4We10XBQk', 0.04],
+    ['rectY3NPHxQPKpS37', 'rechjBJBVOOEP7ZV9', 0.02],
+    ['recsUhvD7fqkw9EkO', 'recOQCFTepOYqOGOB', 2],
+    ['recsUhvD7fqkw9EkO', 'rec9ZJTTkRnmpg0Px', 0.1],
+    ['recsUhvD7fqkw9EkO', 'recQfodhqZApeIhWB', 0.03],
+    ['recsUhvD7fqkw9EkO', 'rechjBJBVOOEP7ZV9', 0.03],
+    ['recjpmxI7m1c6kOzv', 'recMElZoBzZYAvlo1', 0.15],
+    ['recZ4sd4zFR5tOEjo', 'recSfdatC5AVJqbIr', 0.25],
+    ['recZ4sd4zFR5tOEjo', 'recRDYaVE2KGr3m16', 0.03],
+    ['recCeRRcZwfqyWJbc', 'recfJZCrwlwzIaaqK', 0.008],
+    ['rec4SaByycdhWZwDn', 'recTjST29r1q2i0w9', 1],
+    ['recQkQ9BnM4Tv1FDE', 'rec7mbArXptIwG776', 1]
+  ];
 
   /* ---------- Instantané démo (Airtable, 18/11/2026) ---------- */
   const S = {
@@ -167,7 +212,7 @@
     mode: token() ? 'live' : 'demo',
     ready: false, error: null,
     restaurant: { name: "L'Entrecôte Nantes", initials: 'LE', email: '' },
-    suppliers: [], products: [], orders: [], bons: [], bonLines: {}, moves: {},
+    suppliers: [], products: [], orders: [], bons: [], bonLines: {}, moves: {}, plats: [], sales: [],
     listeners: new Set(),
     on(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); },
     emit() { this.listeners.forEach((fn) => { try { fn(); } catch (e) { console.error(e); } }); },
@@ -214,15 +259,29 @@
         (this.bonLines[bonId] = this.bonLines[bonId] || []).push({ id, bonId, label, qty, productId });
       });
       this.moves = {};
+      this.plats = demoPlats.map(([id, name, cat, price, code]) => ({ id, name, cat, price, code, recipe: demoRecipe.filter((r) => r[0] === id).map((r) => ({ productId: r[1], qty: r[2] })) }));
+      this.sales = [];
+      if (keep && keep.sales) this.sales = keep.sales;
+      if (keep && keep.plats) this.plats = keep.plats;
       if (keep && keep.v === 1) Object.assign(this, keep.data);
+      if (keep && keep.suppliers) this.suppliers = keep.suppliers;
     },
     saveDemo() {
       if (this.mode !== 'demo') return;
-      store.set('demoState', { v: 1, data: { products: this.products, orders: this.orders, bons: this.bons, bonLines: this.bonLines, moves: this.moves } });
+      store.set('demoState', { v: 1, suppliers: this.suppliers, sales: this.sales, plats: this.plats, data: { products: this.products, orders: this.orders, bons: this.bons, bonLines: this.bonLines, moves: this.moves } });
     },
     resetDemo() { store.del('demoState'); this.loadDemo(); this.emit(); },
 
     async loadLive() {
+      const [plats, recipe, sales] = await Promise.all([
+        listAll(T.plats).catch(() => []), listAll(T.recipe).catch(() => []),
+        listAll(T.sales, { sort: [{ field: 'Date', direction: 'desc' }], maxRecords: 60 }).catch(() => [])
+      ]);
+      this.plats = plats.filter((r) => r.fields['Actif'] !== false).map((r) => ({
+        id: r.id, name: r.fields['Nom'] || '—', cat: sel(r.fields['Catégorie']) || 'Plat', price: r.fields['Prix de vente'] || 0, code: r.fields['Code caisse'] || '',
+        recipe: recipe.filter((x) => (x.fields['Plat'] || []).includes(r.id)).map((x) => ({ id: x.id, productId: first(x.fields['Produit']), qty: x.fields['Quantité par portion'] || 0 }))
+      }));
+      this.sales = sales.map((r) => ({ id: r.id, date: r.fields['Date'] || '', platId: first(r.fields['Plat']), qty: r.fields['Quantité vendue'] || 0, source: sel(r.fields['Source']) || '', done: !!r.fields['Déduit du stock'] }));
       const [rest, sup, prod, ord, ordLines, bons] = await Promise.all([
         listAll(T.restaurants, { maxRecords: 1 }),
         listAll(T.suppliers),
@@ -239,7 +298,7 @@
         id: r.id, name: r.fields['Nom'] || '—', email: r.fields['Email de commande'] || '', delay: r.fields['Délai de livraison (jours)'] || 0,
         cat: sel(r.fields['Catégorie']) || '', days: r.fields['Jours de livraison'] || ''
       }));
-      this.products = prod.map((r) => {
+      this.products = prod.filter((r) => !r.fields['Archivé']).map((r) => {
         const f = r.fields;
         return {
           id: r.id, name: f['Nom'] || '—', cat: sel(f['Catégorie']) || 'Autre', supplierId: first(f['Fournisseur']) || null,
@@ -294,9 +353,126 @@
     /* ---------- Seuil d'alerte ---------- */
     async setSeuil(productId, value) {
       const p = this.product(productId); p.seuil = value;
+      // pas de re-rendu : l'écran reste en place, sans animation qui bloque
       if (this.mode === 'live') await patch(T.products, [{ id: productId, fields: { "Seuil d'alerte": value } }]);
-      else { await sleep(350); this.saveDemo(); }
+      else { await sleep(150); this.saveDemo(); }
+    },
+
+    /* ---------- Retirer un produit (archivé, l'historique reste) ---------- */
+    async archiveProduct(productId) {
+      if (this.mode === 'live') await patch(T.products, [{ id: productId, fields: { 'Archivé': true } }]);
+      else await sleep(250);
+      this.products = this.products.filter((p) => p.id !== productId);
+      this.saveDemo(); this.emit();
+    },
+
+    /* ---------- Nouveau produit (depuis un bon ou le stock) ---------- */
+    async createProduct(d) {
+      const p = { name: d.name, cat: d.cat || 'Autre', supplierId: d.supplierId || null, unit: d.unit || 'pièce', qty: 0, seuil: Number(d.seuil) || 0, cond: Number(d.cond) || 1, conso: 0, price: Number(d.price) || 0, moveIds: [] };
+      if (this.mode === 'live') {
+        const f = { Nom: p.name, 'Catégorie': p.cat, 'Unité': p.unit, "Seuil d'alerte": p.seuil, Conditionnement: p.cond, 'Conso moyenne / jour': 0, 'Prix unitaire': p.price };
+        if (p.supplierId) f.Fournisseur = [p.supplierId];
+        const r = await create(T.products, [f]); p.id = r.records[0].id;
+      } else { await sleep(500); p.id = fakeId(); }
+      this.products.push(p); this.saveDemo(); this.emit();
+      return p;
+    },
+
+    /* ---------- Jours de livraison d'un fournisseur ---------- */
+    async setSupplierDays(supplierId, days) {
+      const s = this.supplier(supplierId); s.days = days;
+      if (this.mode === 'live') await patch(T.suppliers, [{ id: supplierId, fields: { 'Jours de livraison': days } }]);
+      else { await sleep(200); this.saveDemo(); }
+    },
+
+    /* ---------- Fournisseur (import de la configuration) ---------- */
+    async upsertSupplier(d) {
+      let s = this.suppliers.find((x) => x.name.toLowerCase().replace(/\s*\(fictif\)/, '') === d.name.toLowerCase());
+      const f = { Nom: d.name }; if (d.email) f['Email de commande'] = d.email; if (d.days) f['Jours de livraison'] = d.days; if (d.delay) f['Délai de livraison (jours)'] = Number(d.delay);
+      if (this.mode === 'live') {
+        if (s) await patch(T.suppliers, [{ id: s.id, fields: f }]);
+        else { const r = await create(T.suppliers, [f]); s = { id: r.records[0].id, cat: '' }; this.suppliers.push(s); }
+      } else { await sleep(80); if (!s) { s = { id: fakeId(), cat: '' }; this.suppliers.push(s); } }
+      Object.assign(s, { name: s.name || d.name, email: d.email || s.email || '', days: d.days || s.days || '', delay: Number(d.delay) || s.delay || 1 });
+      this.saveDemo();
+      return s;
+    },
+
+    /* ---------- Ventes → déduction des ingrédients (fiches recettes) ---------- */
+    plat(id) { return this.plats.find((x) => x.id === id); },
+    // calcule ce que des ventes retirent du stock, produit par produit
+    usage(items) {
+      const out = {};
+      items.forEach((it) => { const pl = this.plat(it.platId); if (!pl) return; pl.recipe.forEach((r) => { if (r.productId && this.product(r.productId)) out[r.productId] = Math.round(((out[r.productId] || 0) + r.qty * it.qty) * 1000) / 1000; }); });
+      return out;
+    },
+    async recordSales(items, source = 'Saisie manuelle', existing = null) {
+      items = items.filter((it) => it.qty > 0 && this.plat(it.platId));
+      let moveCount = 0;
+      for (const it of items) {
+        const pl = this.plat(it.platId);
+        const lines = pl.recipe.filter((r) => r.productId && this.product(r.productId) && r.qty > 0).map((r) => ({ p: this.product(r.productId), q: Math.round(r.qty * it.qty * 1000) / 1000 }));
+        if (this.mode === 'live') {
+          const moveIds = [];
+          for (let i = 0; i < lines.length; i += 10) {
+            const r = await create(T.moves, lines.slice(i, i + 10).map((l) => ({ Type: 'Sortie', 'Quantité': -l.q, Date: todayISO(), Origine: 'Vente (recette)', Produit: [l.p.id] })));
+            r.records.forEach((rec, k) => { moveIds.push(rec.id); (lines[i + k].p.moveIds = lines[i + k].p.moveIds || []).push(rec.id); });
+          }
+          if (it.saleId) await patch(T.sales, [{ id: it.saleId, fields: { 'Déduit du stock': true, 'Mouvements de stock': moveIds } }]);
+          else {
+            const r = await create(T.sales, [{ Date: todayISO(), Plat: [pl.id], 'Quantité vendue': it.qty, Source: source, 'Déduit du stock': true, 'Mouvements de stock': moveIds }]);
+            this.sales.unshift({ id: r.records[0].id, date: todayISO(), platId: pl.id, qty: it.qty, source, done: true });
+          }
+        } else {
+          await sleep(120);
+          if (it.saleId) { const s0 = this.sales.find((x) => x.id === it.saleId); if (s0) s0.done = true; }
+          else this.sales.unshift({ id: fakeId(), date: todayISO(), platId: pl.id, qty: it.qty, source, done: true });
+        }
+        if (it.saleId) { const s0 = this.sales.find((x) => x.id === it.saleId); if (s0) s0.done = true; }
+        lines.forEach((l) => { l.p.qty = Math.round((l.p.qty - l.q) * 1000) / 1000; delete this.moves[l.p.id]; });
+        moveCount += lines.length;
+      }
+      this.saveDemo(); this.emit();
+      return moveCount;
+    },
+    pendingSales() { return this.sales.filter((x) => !x.done); },
+    // démo : simule un service envoyé par la caisse (ce que fait le scénario Make en vrai)
+    async simulateCash() {
+      await sleep(600);
+      const pick = [['recoxSI9QFF0y542p', 38], ['rectY3NPHxQPKpS37', 9], ['recsUhvD7fqkw9EkO', 6], ['recCeRRcZwfqyWJbc', 21], ['rec4SaByycdhWZwDn', 12], ['recQkQ9BnM4Tv1FDE', 8]];
+      pick.forEach(([platId, qty]) => this.sales.unshift({ id: fakeId(), date: todayISO(), platId, qty, source: 'Caisse', done: false }));
+      this.saveDemo(); this.emit();
+    },
+    async refreshSales() {
+      if (this.mode !== 'live') return;
+      const sales = await listAll(T.sales, { sort: [{ field: 'Date', direction: 'desc' }], maxRecords: 60 });
+      this.sales = sales.map((r) => ({ id: r.id, date: r.fields['Date'] || '', platId: first(r.fields['Plat']), qty: r.fields['Quantité vendue'] || 0, source: sel(r.fields['Source']) || '', done: !!r.fields['Déduit du stock'] }));
       this.emit();
+    },
+    async setRecipeQty(platId, productId, qty) {
+      const pl = this.plat(platId); let r = pl.recipe.find((x) => x.productId === productId);
+      if (this.mode === 'live') {
+        if (r && r.id) { if (qty > 0) await patch(T.recipe, [{ id: r.id, fields: { 'Quantité par portion': qty } }]); else await at(T.recipe + '/' + r.id, { method: 'DELETE' }); }
+        else if (qty > 0) { const res = await create(T.recipe, [{ 'Libellé': this.product(productId).name, Plat: [platId], Produit: [productId], 'Quantité par portion': qty }]); r = { id: res.records[0].id, productId, qty }; pl.recipe.push(r); }
+      } else { await sleep(150); if (!r && qty > 0) { r = { productId, qty }; pl.recipe.push(r); } }
+      if (r) r.qty = qty;
+      if (qty <= 0) pl.recipe = pl.recipe.filter((x) => x.productId !== productId);
+      this.saveDemoPlats();
+    },
+    saveDemoPlats() { if (this.mode === 'demo') { const k = store.get('demoState', {}) || {}; k.plats = this.plats; store.set('demoState', Object.assign({ v: 1 }, k)); } },
+
+    /* ---------- Inventaire groupé (fin de journée) ---------- */
+    async saveInventory(counts) {
+      const changes = counts.map((c) => { const p = this.product(c.id); return p ? { p, delta: Math.round((c.qty - p.qty) * 10) / 10 } : null; }).filter((x) => x && x.delta);
+      if (this.mode === 'live') {
+        for (let i = 0; i < changes.length; i += 10) {
+          const r = await create(T.moves, changes.slice(i, i + 10).map((c) => ({ Type: 'Inventaire', 'Quantité': c.delta, Date: todayISO(), Origine: 'Inventaire', Produit: [c.p.id] })));
+          r.records.forEach((rec, k) => (changes[i + k].p.moveIds = changes[i + k].p.moveIds || []).push(rec.id));
+        }
+      } else await sleep(700);
+      changes.forEach((c) => { c.p.qty = Math.round((c.p.qty + c.delta) * 10) / 10; delete this.moves[c.p.id]; });
+      this.saveDemo(); this.emit();
+      return changes.length;
     },
 
     /* ---------- Sortie / correction de stock manuelle ---------- */
@@ -466,7 +642,11 @@
       if (this.mode !== 'live') { await sleep(900); return { name: 'Gérant', role: 'Gérant' }; }
       const recs = await listAll(T.users, { filterByFormula: "LOWER({Email Google})='" + email.toLowerCase().replace(/'/g, "\\'") + "'", maxRecords: 1 });
       if (!recs.length) return null;
-      return { name: recs[0].fields['Nom'] || email, role: sel(recs[0].fields['Rôle']) || '' };
+      return { id: recs[0].id, name: recs[0].fields['Nom'] || email, role: sel(recs[0].fields['Rôle']) || '' };
+    },
+    async updateUserEmail(user, email) {
+      if (this.mode === 'live' && user.id) await patch(T.users, [{ id: user.id, fields: { 'Email Google': email } }]);
+      else await sleep(500);
     }
   };
 

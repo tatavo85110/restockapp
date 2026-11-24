@@ -28,6 +28,13 @@
   function todayLong() { const d = new Date(); return (DAYS[d.getDay()] + ' ' + d.getDate() + ' ' + ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'][d.getMonth()]).replace(/^./, (c) => c.toUpperCase()); }
   function greeting() { const h = new Date().getHours(); return h < 18 && h >= 5 ? 'Bonjour' : 'Bonsoir'; }
   // « Mar, Jeu, Sam » / « Lun à Sam » / « Tous les jours » → indices lundi=0
+  const DAY_NAMES = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+  function nextDelivery(sup, from) {
+    if (!sup) return null; const days = parseDays(sup.days); const d = new Date(from ? from + 'T12:00:00' : Date.now()); d.setDate(d.getDate() + Math.max(1, Number(sup.delay) || 1));
+    if (!days.length) return d; for (let i = 0; i < 8; i++) { if (days.includes((d.getDay() + 6) % 7)) return d; d.setDate(d.getDate() + 1); } return d;
+  }
+  const deliveryStr = (sup, from) => { const d = nextDelivery(sup, from); return d ? d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }) : '?'; };
+  const daysStr = (sup) => { const d = parseDays(sup && sup.days); return !d.length ? '' : d.length === 7 ? 'livré tous les jours' : 'livré le ' + d.map((i) => DAY_NAMES[i]).join(', '); };
   function parseDays(txt) {
     const map = { lun: 0, mar: 1, mer: 2, jeu: 3, ven: 4, sam: 5, dim: 6 };
     const t = String(txt || '').toLowerCase();
@@ -73,6 +80,14 @@
     link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
     refresh: '<path d="M20 11a8 8 0 0 0-14.5-4.5L4 8M4 13a8 8 0 0 0 14.5 4.5L20 16"/><path d="M4 4v4h4M20 20v-4h-4"/>',
     phone: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1z"/>',
+    tally: '<path d="M8 6h12M8 12h12M8 18h12"/><path d="M3.5 6l1 1 2-2M3.5 12l1 1 2-2M3.5 18l1 1 2-2"/>',
+    trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+    download: '<path d="M12 4v11M7 10l5 5 5-5"/><path d="M5 20h14"/>',
+    upload: '<path d="M12 20V9M7 14l5-5 5 5"/><path d="M5 4h14"/>',
+    lock: '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>',
+    shield: '<path d="M12 3l7.5 3v6c0 4.5-3.2 7.8-7.5 9-4.3-1.2-7.5-4.5-7.5-9V6z"/><path d="M9 12l2 2 4-4"/>',
+    doc: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>',
+    team: '<circle cx="9" cy="8.5" r="3"/><path d="M3.5 19c.8-3.4 3-4.8 5.5-4.8s4.7 1.4 5.5 4.8"/><circle cx="17" cy="9.5" r="2.5"/><path d="M16 14.4c2.3 0 4 1.3 4.6 4.1"/>',
     history: '<path d="M4 12a8 8 0 1 0 2.5-5.8L4 8.5"/><path d="M4 4v4.5h4.5M12 8v4l3 2"/>'
   };
   const ic = (n, cls = '') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="${cls}">${P[n] || ''}</svg>`;
@@ -184,12 +199,12 @@
   }
   const fail = (e) => { console.error(e); toast(esc(e.message || 'Une erreur est survenue'), 'warn'); };
 
-  function sheet(html, onMount) {
+  function sheet(html, onMount, onClose) {
     const back = document.createElement('div'); back.className = 'sheet-backdrop';
     const sh = document.createElement('div'); sh.className = 'sheet'; sh.setAttribute('role', 'dialog');
     sh.innerHTML = '<div class="grab"></div>' + html;
     app.append(back, sh);
-    const close = () => { back.classList.add('out'); sh.classList.add('out'); setTimeout(() => { back.remove(); sh.remove(); }, 300); };
+    const close = () => { if (sh.classList.contains('out')) return; back.classList.add('out'); sh.classList.add('out'); setTimeout(() => { back.remove(); sh.remove(); onClose && onClose(); }, 300); };
     back.addEventListener('click', close);
     // glisser vers le bas pour fermer
     let y0 = null;
@@ -201,7 +216,7 @@
   }
 
   /* ================= Routeur avec transitions ================= */
-  const TABS = ['home', 'stock', 'orders', 'profile'];
+  const TABS = ['home', 'stock', 'inventory', 'orders', 'profile'];
   const routes = {};
   let current = null; let stack = []; let nextTransition = null;
   const go = (path, t) => { nextTransition = t || null; if (location.hash === '#' + path) render(); else location.hash = path; };
@@ -213,6 +228,7 @@
     <a class="nav-item" data-tab="home" href="#/home">${ic('home')}Accueil</a>
     <a class="nav-item" data-tab="stock" href="#/stock">${ic('box')}Stock</a>
     <a class="nav-scan" href="#/scan" aria-label="Scanner un bon">${ic('scan')}</a>
+    <a class="nav-item" data-tab="inventory" href="#/inventory">${ic('tally')}Inventaire</a>
     <a class="nav-item" data-tab="orders" href="#/orders">${ic('clip')}Commandes</a>
     <a class="nav-item" data-tab="profile" href="#/profile">${ic('user')}Profil</a>
     <span class="nav-indicator"></span>`;
@@ -340,6 +356,37 @@
       <span style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><b class="num" style="font-size:15px">${qtyStr(p.qty, p.unit)}</b><span class="bar ${lv}"><i style="width:${pct}%;--d:${0.15 + Math.min(i, 10) * 0.04}s"></i></span></span>
     </button>`;
   };
+
+  /* ---------- Glisser vers la gauche pour supprimer (comme Messages sur iPhone) ---------- */
+  function swipeToDelete(container) {
+    container.querySelectorAll('.row[data-go^="/product/"]').forEach((row) => {
+      const id = row.dataset.go.split('/')[2]; const p = DB.product(id); if (!p) return;
+      const wrap = document.createElement('div'); wrap.className = 'swipe';
+      row.replaceWith(wrap);
+      wrap.innerHTML = `<button class="swipe-act" aria-label="Supprimer ${esc(p.name)}">${ic('trash')}<span>Supprimer</span></button>`;
+      wrap.appendChild(row);
+      const W = 104; let x0 = null, y0 = 0, dx = 0, open = false, horiz = null;
+      const set = (x, anim) => { row.style.transition = anim ? 'transform .3s var(--ease)' : 'none'; row.style.transform = x ? `translateX(${x}px)` : ''; };
+      const closeAll = () => container.querySelectorAll('.swipe.open').forEach((w) => { if (w !== wrap) { w.classList.remove('open'); const r = w.querySelector('.row'); r.style.transition = 'transform .3s var(--ease)'; r.style.transform = ''; } });
+      row.addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; horiz = null; dx = 0; }, { passive: true });
+      row.addEventListener('touchmove', (e) => {
+        if (x0 == null) return; const mx = e.touches[0].clientX - x0; const my = e.touches[0].clientY - y0;
+        if (horiz == null && (Math.abs(mx) > 8 || Math.abs(my) > 8)) horiz = Math.abs(mx) > Math.abs(my);
+        if (!horiz) return;
+        dx = Math.min(0, Math.max(-W * 1.6, (open ? -W : 0) + mx)); set(dx, false);
+      }, { passive: true });
+      row.addEventListener('touchend', () => {
+        if (x0 == null) return; x0 = null; if (!horiz) return;
+        open = dx < -W / 2; wrap.classList.toggle('open', open); set(open ? -W : 0, true); if (open) { closeAll(); haptic(10); }
+      });
+      row.addEventListener('click', (e) => { if (open || horiz) { e.stopImmediatePropagation(); e.preventDefault(); if (open) { open = false; wrap.classList.remove('open'); set(0, true); } horiz = null; } }, true);
+      wrap.querySelector('.swipe-act').addEventListener('click', async () => {
+        haptic(20); wrap.classList.add('removing');
+        try { await DB.archiveProduct(id); toast(esc(p.name) + ' retiré du stock'); }
+        catch (e) { wrap.classList.remove('removing'); set(0, true); fail(e); }
+      });
+    });
+  }
 
   /* ================= Écrans ================= */
 
@@ -481,7 +528,7 @@
         <div class="stagger" style="margin-top:18px">
           <div class="hero">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;position:relative">
-              <div><div style="font-size:13px;color:var(--ink-2)">Alerte de 7 h 00</div><div class="hero-title" style="margin-top:4px">${heroTitle}</div></div>
+              <div><div style="font-size:13px;color:var(--ink-2)">Alerte de ${S.get('alertTime', '07:00').replace(':', ' h ')}</div><div class="hero-title" style="margin-top:4px">${heroTitle}</div></div>
               ${notOrdered.length ? pill('sent new', 'Nouveau') : pill('ok', 'OK')}
             </div>
             <div class="btn-row" style="position:relative">
@@ -514,41 +561,70 @@
     }));
   }
 
-  /* ---------- Alertes ---------- */
+  /* ---------- Alertes (notifications) ---------- */
+  // Récapitulatif de ce qui vient d'être ajouté aux commandes, avec un lien direct
+  function addedSheet(items) {
+    const bySup = {};
+    items.forEach((it) => { const p = DB.product(it.id); if (!p) return; (bySup[p.supplierId] = bySup[p.supplierId] || []).push({ p, colis: it.colis }); });
+    sheet(`<div style="display:flex;gap:12px;align-items:center"><div style="flex:none">${coco('joy', 56)}</div><div><h3>Ajouté aux commandes</h3><div style="font-size:13px;color:var(--ink-2)">${items.length} produit${items.length > 1 ? 's' : ''} · ${Object.keys(bySup).length} fournisseur${Object.keys(bySup).length > 1 ? 's' : ''}</div></div></div>
+      <div class="stack-cards" style="margin-top:14px">${Object.entries(bySup).map(([sid, list]) => { const s = DB.supplier(sid); return `<div class="list"><div class="row" style="background:var(--neutral-bg)">${supAvatar(s, 30)}<span class="grow"><span class="title">${esc(clean(s && s.name))}</span></span></div>${list.map((x) => `<div class="row"><span class="grow"><span class="title">${esc(x.p.name)}</span></span><b class="num">+${x.colis} colis</b></div>`).join('')}</div>`; }).join('')}</div>
+      <button class="btn btn-primary press ripple-host" style="margin-top:16px" data-see>${ic('clip')}Voir les commandes</button>`,
+    (sh, close) => sh.querySelector('[data-see]').addEventListener('click', () => { close(); ordersTab = 'Brouillon'; go('/orders'); }));
+  }
+
   routes.alerts = {
     auth: true, live: true, cls: 'no-nav',
     render: () => {
       const low = DB.products.filter((p) => DB.level(p) !== 'ok').sort((a, b) => a.qty / a.seuil - b.qty / b.seuil);
       const notOrdered = low.filter((p) => !DB.inOrder(p));
       const drafts = DB.orders.filter((o) => o.status === 'Brouillon');
+      const hour = S.get('alertTime', '07:00').replace(':', ' h ');
       return `<div class="back-row">${backBtn()}<span class="pill draft"><i></i>Aujourd'hui · ${low.length}</span></div>
         <h1 class="page-title">Alertes</h1>
         <div class="stagger">
           <div class="card card-pad" style="display:flex;gap:14px;align-items:center;margin-top:14px">
             <div style="flex:none">${coco(low.length ? 'worry' : 'joy', 64)}</div>
-            <div style="font-size:14.5px;line-height:1.45"><b>Récap envoyé à 7 h 00</b><br><span style="color:var(--ink-2)">par e-mail à l'équipe de cuisine</span></div>
+            <div style="font-size:14.5px;line-height:1.45"><b>Récap envoyé à ${hour}</b><br><span style="color:var(--ink-2)">par e-mail à l'équipe de cuisine</span></div>
           </div>
           <div class="section-head"><h2>Sous le seuil d'alerte</h2></div>
-          <div class="stack-cards">${low.map((p) => {
-            const lv = DB.level(p); const s = DB.supplier(p.supplierId); const colis = DB.toOrderColis(p); const inO = DB.inOrder(p);
-            return `<div class="card card-pad press-soft" data-go="/product/${p.id}">
-              <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div style="min-width:0"><div style="font-weight:700;font-size:16px">${esc(p.name)}</div><div style="font-size:13px;color:var(--ink-2)">${esc(clean(s && s.name))}</div></div>${levelPill(lv)}</div>
-              <div style="display:flex;align-items:baseline;gap:6px;margin-top:10px"><b class="num" style="font-size:24px">${nf(p.qty)}</b><span style="color:var(--ink-2)">${unitLabel(p.unit, p.qty)} en stock</span></div>
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:13px;color:var(--ink-2)"><span>Seuil ${qtyStr(p.seuil, p.unit)} · à commander ${colis} colis</span>${inO ? pill('sent', 'En commande') : ''}</div>
+          <div class="stack-cards alert-grid">${low.map((p) => {
+            const lv = DB.level(p); const s = DB.supplier(p.supplierId); const colis = Math.max(1, DB.toOrderColis(p)); const inO = DB.inOrder(p);
+            return `<div class="card card-pad alert-card" data-p="${p.id}">
+              <button class="alert-head press-soft" data-go="/product/${p.id}"><div style="min-width:0;flex:1;text-align:left"><div style="font-weight:700;font-size:16px">${esc(p.name)}</div><div style="font-size:13px;color:var(--ink-2)">${esc(clean(s && s.name))}</div></div>${levelPill(lv)}${ic('chev', 'chev')}</button>
+              <div style="display:flex;align-items:baseline;gap:6px;margin-top:8px"><b class="num" style="font-size:24px">${nf(p.qty)}</b><span style="color:var(--ink-2)">${unitLabel(p.unit, p.qty)} en stock</span></div>
+              <div class="alert-seuil"><span>Seuil d'alerte</span><div class="stepper sm"><button data-sd="-1" aria-label="Baisser le seuil">${ic('minus')}</button><output class="num" data-so>${qtyStr(p.seuil, p.unit)}</output><button data-sd="1" aria-label="Monter le seuil">${ic('plus')}</button></div></div>
+              ${inO ? `<button class="btn btn-ghost btn-sm press" style="margin-top:12px" data-go="/orders">${ic('check')}Déjà en commande · voir</button>`
+                : `<button class="btn btn-primary btn-sm press ripple-host" style="margin-top:12px" data-order="${colis}">${ic('plus')}Commander ${colis} colis</button>`}
             </div>`;
           }).join('') || `<div class="empty">${coco('joy', 90)}<b>Rien sous le seuil</b>Coco veille sur ton stock.</div>`}</div>
           ${low.length ? `<div class="ia-banner">${ic('spark')}<span>${notOrdered.length ? `${notOrdered.length} produit${notOrdered.length > 1 ? 's' : ''} pas encore en commande.` : 'Restock a déjà préparé les commandes, une par fournisseur.'}</span></div>
-          <div style="margin-top:16px">${notOrdered.length ? `<button class="btn btn-primary press ripple-host" data-prepare>Ajouter les ${notOrdered.length} aux commandes</button>` : `<button class="btn btn-primary press ripple-host" data-go="/orders">Relire les ${drafts.length} commande${drafts.length > 1 ? 's' : ''}</button>`}</div>` : ''}
+          <div style="margin-top:16px">${notOrdered.length > 1 ? `<button class="btn btn-primary press ripple-host" data-prepare>Tout commander (${notOrdered.length} produits)</button>` : `<button class="btn btn-ghost press ripple-host" data-go="/orders">Relire les ${drafts.length} commande${drafts.length > 1 ? 's' : ''}</button>`}</div>` : ''}
         </div>`;
     },
     mount: (el) => {
       bindBack(el); bindLinks(el);
+      el.querySelectorAll('[data-p]').forEach((card) => {
+        const p = DB.product(card.dataset.p); if (!p) return;
+        let val = p.seuil, pending = null; const out = card.querySelector('[data-so]');
+        const step = p.seuil >= 20 ? 5 : p.seuil >= 4 ? 1 : 0.5;
+        card.querySelectorAll('[data-sd]').forEach((b) => b.addEventListener('click', () => {
+          val = Math.max(0, Math.round((val + step * Number(b.dataset.sd)) * 10) / 10);
+          out.textContent = qtyStr(val, p.unit); haptic(6);
+          clearTimeout(pending);
+          pending = setTimeout(() => DB.setSeuil(p.id, val).then(() => toast('Seuil de ' + esc(p.name) + ' : ' + qtyStr(val, p.unit))).catch(fail), 700);
+        }));
+        const ob = card.querySelector('[data-order]');
+        ob && ob.addEventListener('click', async () => {
+          const colis = Number(ob.dataset.order);
+          try { await btnLoading(ob, DB.addToOrder(p.id, colis)); haptic(20); addedSheet([{ id: p.id, colis }]); render({ silent: true }); } catch (e) { fail(e); }
+        });
+      });
       const b = el.querySelector('[data-prepare]');
       b && b.addEventListener('click', async () => {
-        const list = DB.products.filter((p) => DB.level(p) !== 'ok' && !DB.inOrder(p));
+        const list = DB.products.filter((p) => DB.level(p) !== 'ok' && !DB.inOrder(p)).map((p) => ({ id: p.id, colis: Math.max(1, DB.toOrderColis(p)) }));
         try {
-          await btnLoading(b, (async () => { for (const p of list) await DB.addToOrder(p.id, DB.toOrderColis(p)); })());
-          toast(list.length + ' produit' + (list.length > 1 ? 's' : '') + ' ajoutés aux brouillons'); confetti();
+          await btnLoading(b, (async () => { for (const it of list) await DB.addToOrder(it.id, it.colis); })());
+          confetti(); addedSheet(list);
         } catch (e) { fail(e); }
       });
     }
@@ -562,7 +638,7 @@
       const cats = [...new Set(DB.products.map((p) => p.cat))].sort((a, b) => a.localeCompare(b, 'fr'));
       const filters = ['Tous', 'À recommander', ...cats];
       const lowCount = DB.products.filter((p) => DB.level(p) !== 'ok').length;
-      return `<h1 class="page-title">Stock</h1>
+      return `<div class="topbar"><h1 class="page-title" style="margin:0">Stock</h1><button class="btn btn-ghost btn-sm press" style="width:auto" data-new>${ic('plus')}Produit</button></div>
         <label class="search ${stockState.q ? 'has-value' : ''}">${ic('search')}<input type="search" placeholder="Rechercher un produit" value="${esc(stockState.q)}" aria-label="Rechercher un produit"><button class="clear press" aria-label="Effacer" type="button">${ic('x')}</button></label>
         <div class="chips" role="tablist">${filters.map((f) => `<button class="chip ${f === stockState.filter ? 'active' : ''}" data-f="${esc(f)}" role="tab" aria-selected="${f === stockState.filter}">${esc(f)}${f === 'À recommander' && lowCount ? `<span class="count">${lowCount}</span>` : ''}</button>`).join('')}</div>
         <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--ink-2);margin:16px 2px 8px"><span data-count-label></span><span>Trié par urgence</span></div>
@@ -579,10 +655,11 @@
           .filter((p) => !q || p.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').includes(q))
           .sort((a, b) => order[DB.level(a)] - order[DB.level(b)] || a.qty / a.seuil - b.qty / b.seuil);
         label.textContent = items.length + ' produit' + (items.length > 1 ? 's' : '');
-        list.innerHTML = items.length ? `<div class="list ${animate ? 'stagger' : ''}">${items.map(productRow).join('')}</div>` : `<div class="empty">${coco('read', 80)}<b>Aucun produit trouvé</b>Essaie un autre mot.</div>`;
-        bindLinks(list);
+        list.innerHTML = items.length ? `<div class="list ${animate ? 'stagger' : ''}">${items.map(productRow).join('')}</div><p class="hint-swipe">Glisse un produit vers la gauche pour le retirer du stock.</p>` : `<div class="empty">${coco('read', 80)}<b>Aucun produit trouvé</b>Essaie un autre mot.</div>`;
+        bindLinks(list); swipeToDelete(list);
       };
       draw(!el.classList.contains('quiet'));
+      el.querySelector('[data-new]').addEventListener('click', () => openNewProduct({}, (p) => go('/product/' + p.id)));
       input.addEventListener('input', () => { stockState.q = input.value; box.classList.toggle('has-value', !!input.value); draw(false); });
       box.querySelector('.clear').addEventListener('click', (e) => { e.preventDefault(); input.value = ''; stockState.q = ''; box.classList.remove('has-value'); draw(true); input.focus(); });
       el.querySelectorAll('.chip').forEach((c) => c.addEventListener('click', () => {
@@ -809,7 +886,7 @@
             return `<div class="card line-card ${l.flag && !l.ok ? 'flag' : ''}" data-i="${i}">
               <div class="lc-top"><div style="min-width:0;flex:1"><div class="lc-name">${p ? esc(p.name) : '<span style="color:var(--crit-ink)">Produit non reconnu</span>'}</div><div class="lc-price">${esc(l.label)}${p ? ' · ' + euro(p.price) + ' / ' + esc(p.unit) : ''}</div></div>
               ${readonly ? `<b class="num">${nf(l.qty)} colis</b>` : `<div class="stepper"><button data-q="-1" aria-label="Moins">${ic('minus')}</button><output class="num">${nf(l.qty)} colis</output><button data-q="1" aria-label="Plus">${ic('plus')}</button></div>`}</div>
-              ${p ? `<div style="font-size:13px;color:var(--ink-2);margin-top:8px">= <b style="color:var(--ink)">+${qtyStr(units, p.unit)}</b> en stock</div>` : readonly ? '' : `<button class="btn btn-ghost btn-sm press" style="margin-top:10px" data-assoc>${ic('link')}Associer à un produit</button>`}
+              ${p ? `<div style="font-size:13px;color:var(--ink-2);margin-top:8px">= <b style="color:var(--ink)">+${qtyStr(units, p.unit)}</b> en stock</div>` : readonly ? '' : `<button class="btn btn-ghost btn-sm press" style="margin-top:10px" data-assoc>${ic('link')}Associer à un produit</button> <button class="btn btn-primary btn-sm press" style="margin-top:10px" data-create>${ic('plus')}Créer ce produit</button>`}
               ${l.flag && !l.ok && !readonly ? `<div class="flag-note">${ic('warn')}<span style="flex:1">D'habitude ${l.usual} colis par livraison. Bien ${nf(l.qty)} ?</span><button class="link" data-okflag>Oui</button></div>` : ''}
             </div>`;
           }).join('')}</div>
@@ -831,7 +908,8 @@
             body.querySelector('.sum-row b').textContent = euro(total()) + ' HT';
           }));
           const ok = card.querySelector('[data-okflag]'); ok && ok.addEventListener('click', () => { l.ok = true; haptic(10); draw(); });
-          const as = card.querySelector('[data-assoc]'); as && as.addEventListener('click', () => pickProduct(bon.supplierId, (pid) => { l.productId = pid; draw(); }));
+          const as = card.querySelector('[data-assoc]'); as && as.addEventListener('click', () => pickProduct(bon.supplierId, (pid) => { l.productId = pid; draw(); }, false, { name: l.label }));
+          const cr = card.querySelector('[data-create]'); cr && cr.addEventListener('click', () => openNewProduct({ supplierId: bon.supplierId, name: l.label }, (np) => { l.productId = np.id; draw(); }));
         });
         const add = body.querySelector('[data-add]');
         add && add.addEventListener('click', () => pickProduct(bon.supplierId, async (pid) => {
@@ -850,12 +928,14 @@
       DB.getBonLines(id).then((ls) => { lines = ls.map((l) => Object.assign({}, l)); el.classList.remove('quiet'); draw(); }).catch((e) => { body.innerHTML = `<div class="empty">${esc(e.message)}</div>`; });
     }
   };
-  function pickProduct(supplierId, cb) {
+  function pickProduct(supplierId, cb, all0, pre) {
     const list = DB.products.filter((p) => !supplierId || p.supplierId === supplierId);
-    const all = list.length ? list : DB.products;
-    sheet(`<h3>Choisir le produit</h3><label class="search" style="margin-top:12px">${ic('search')}<input placeholder="Rechercher"></label><div class="list" style="margin-top:12px" data-pl>${all.map((p) => `<button class="row press-soft" data-pid="${p.id}"><span class="grow"><span class="title">${esc(p.name)}</span><span class="meta">Colis de ${nf(p.cond)} ${esc(unitLabel(p.unit, p.cond))}</span></span>${ic('chev', 'chev')}</button>`).join('')}</div>`,
+    const all = all0 ? DB.products : (list.length ? list : DB.products);
+    sheet(`<h3>Choisir le produit</h3><label class="search" style="margin-top:12px">${ic('search')}<input placeholder="Rechercher"></label>
+      <button class="btn btn-ghost press" style="margin-top:10px;border-style:dashed" data-new>${ic('plus')}Créer un nouveau produit</button><div class="list" style="margin-top:12px" data-pl>${all.map((p) => `<button class="row press-soft" data-pid="${p.id}"><span class="grow"><span class="title">${esc(p.name)}</span><span class="meta">Colis de ${nf(p.cond)} ${esc(unitLabel(p.unit, p.cond))}</span></span>${ic('chev', 'chev')}</button>`).join('')}</div>`,
       (sh, close) => {
         sh.querySelectorAll('[data-pid]').forEach((b) => b.addEventListener('click', () => { close(); cb(b.dataset.pid); }));
+        sh.querySelector('[data-new]').addEventListener('click', () => { const q = sh.querySelector('input').value.trim(); close(); setTimeout(() => openNewProduct(Object.assign({ supplierId, name: q }, pre || {}), (p) => cb(p.id)), 280); });
         const inp = sh.querySelector('input');
         inp.addEventListener('input', () => { const q = inp.value.toLowerCase(); sh.querySelectorAll('[data-pid]').forEach((b) => (b.style.display = b.textContent.toLowerCase().includes(q) ? '' : 'none')); });
       });
@@ -910,10 +990,10 @@
         const list = DB.orders.filter((o) => o.status === ordersTab);
         box.innerHTML = list.length ? `<div class="stack-cards ${anim ? 'stagger' : ''}">${list.map((o) => {
           const s = DB.supplier(o.supplierId);
-          const when = o.status === 'Brouillon' ? `Livraison possible ${s && s.delay <= 1 ? 'demain' : 'sous ' + (s ? s.delay : '?') + ' j'}` : (o.status === 'Envoyée' ? 'Envoyée ' : 'Reçue ') + dayLabel(o.date).toLowerCase();
+          const when = o.status === 'Brouillon' ? `Livraison prévue ${deliveryStr(s)}` : o.status === 'Envoyée' ? `Envoyée ${dayLabel(o.date).toLowerCase()} · arrive ${deliveryStr(s, o.date)}` : 'Reçue ' + dayLabel(o.date).toLowerCase();
           return `<div class="card order" data-o="${o.id}">
             <div class="o-head">${supAvatar(s, 42)}<div style="flex:1;min-width:0"><div class="title" style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(clean(s && s.name))}</div><div style="font-size:13px;color:var(--ink-2)">N° ${o.ref} · ${when}</div></div>${orderPill(o.status)}</div>
-            <div class="o-lines">${o.lines.map((l) => { const p = DB.product(l.productId); return `<div data-l="${l.id}"><span>${esc(p ? p.name : 'Produit')}</span>${o.status === 'Brouillon' ? `<span class="stepper" style="padding:2px;gap:2px"><button data-lq="-1" style="width:28px;height:28px" aria-label="Moins">${ic('minus')}</button><output class="num" style="min-width:52px;font-size:14px">${l.qty} colis</output><button data-lq="1" style="width:28px;height:28px" aria-label="Plus">${ic('plus')}</button></span>` : `<b class="num">${l.qty} colis</b>`}</div>`; }).join('') || '<div style="color:var(--ink-2)">Aucune ligne</div>'}</div>
+            ${o.status !== 'Reçue' && daysStr(s) ? `<div class="o-days">${ic('truck')}<span>${esc(clean(s.name).split(' ')[0])} : ${daysStr(s)}</span></div>` : ''}<div class="o-lines">${o.lines.map((l) => { const p = DB.product(l.productId); return `<div data-l="${l.id}"><span>${esc(p ? p.name : 'Produit')}</span>${o.status === 'Brouillon' ? `<span class="stepper" style="padding:2px;gap:2px"><button data-lq="-1" style="width:28px;height:28px" aria-label="Moins">${ic('minus')}</button><output class="num" style="min-width:52px;font-size:14px">${l.qty} colis</output><button data-lq="1" style="width:28px;height:28px" aria-label="Plus">${ic('plus')}</button></span>` : `<b class="num">${l.qty} colis</b>`}</div>`; }).join('') || '<div style="color:var(--ink-2)">Aucune ligne</div>'}</div>
             <div class="o-total"><span>Estimation</span><b class="num" data-total>${euro(DB.orderTotal(o))} HT</b></div>
             ${o.status === 'Brouillon' ? `<button class="btn btn-primary press ripple-host" data-send>${ic('mail')}Envoyer par e-mail</button>`
               : o.status === 'Envoyée' ? `<div class="btn-row">${o.email ? `<button class="btn btn-ghost btn-sm press" data-mail>${ic('mail')}Voir l'e-mail</button>` : ''}<button class="btn btn-dark btn-sm press ripple-host" data-recv>${ic('check')}Marquer reçue</button></div>` : ''}
@@ -981,44 +1061,334 @@
       el.querySelectorAll('[data-s]').forEach((c) => c.addEventListener('click', (e) => {
         if (e.target.closest('a')) return;
         const s = DB.supplier(c.dataset.s); const prods = DB.products.filter((p) => p.supplierId === s.id);
-        sheet(`<div style="display:flex;gap:12px;align-items:center">${supAvatar(s, 48)}<div><h3>${esc(clean(s.name))}</h3><div style="font-size:13px;color:var(--ink-2)">${esc(s.email)}</div></div></div><div class="list" style="margin-top:14px">${prods.map(productRow).join('')}</div>`,
-          (sh, close) => sh.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => { close(); go(b.dataset.go); })));
+        const full = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']; let cur = parseDays(s.days);
+        sheet(`<div style="display:flex;gap:12px;align-items:center">${supAvatar(s, 48)}<div><h3>${esc(clean(s.name))}</h3><div style="font-size:13px;color:var(--ink-2)">${esc(s.email)}</div></div></div>
+          <div class="section-head" style="margin-top:16px"><h2>Jours de livraison</h2><span style="font-size:13px;color:var(--ink-2)">Délai ${s.delay} j</span></div>
+          <div class="day-pick">${full.map((l, i) => `<button class="${cur.includes(i) ? 'on' : ''}" data-day="${i}" aria-pressed="${cur.includes(i)}">${l}</button>`).join('')}</div>
+          <p style="font-size:13px;color:var(--ink-2);margin:8px 2px 0" data-next>Prochaine livraison si tu commandes aujourd'hui : <b>${deliveryStr(s)}</b></p>
+          <div class="section-head"><h2>Produits</h2></div><div class="list">${prods.map(productRow).join('')}</div>`,
+          (sh, close) => {
+            sh.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => { close(); go(b.dataset.go); }));
+            sh.querySelectorAll('[data-day]').forEach((b) => b.addEventListener('click', async () => {
+              const i = Number(b.dataset.day); cur = cur.includes(i) ? cur.filter((x) => x !== i) : [...cur, i].sort();
+              b.classList.toggle('on'); b.setAttribute('aria-pressed', cur.includes(i)); haptic(6);
+              const txt = cur.length === 7 ? 'Tous les jours' : cur.map((x) => full[x]).join(', ');
+              try { await DB.setSupplierDays(s.id, txt); sh.querySelector('[data-next] b').textContent = deliveryStr(s); } catch (e) { fail(e); }
+            }));
+          }, () => render({ silent: true }));
       }));
     }
+  };
+
+  /* ---------- Nouveau produit (depuis un bon, le stock…) synchronisé avec Airtable ---------- */
+  function openNewProduct(pre, cb) {
+    const cats = [...new Set(DB.products.map((p) => p.cat))].sort((a, b) => a.localeCompare(b, 'fr'));
+    const units = ['kg', 'L', 'pièce', 'bouteille'];
+    sheet(`<h3>Nouveau produit</h3><p class="page-sub" style="margin-top:4px">Il sera ajouté à ta base et proposé sur les prochains bons.</p>
+      <div class="field"><label for="np-name">Nom du produit</label><input id="np-name" placeholder="ex. Jus d'orange 1L" value="${esc(pre.name || '')}"><span class="err"></span></div>
+      <div class="field"><label for="np-sup">Fournisseur</label><select id="np-sup">${DB.suppliers.map((s) => `<option value="${s.id}" ${s.id === pre.supplierId ? 'selected' : ''}>${esc(clean(s.name))}</option>`).join('')}</select></div>
+      <div class="grid2"><div class="field"><label for="np-cat">Catégorie</label><select id="np-cat">${cats.map((c) => `<option ${c === pre.cat ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div>
+        <div class="field"><label for="np-unit">Unité de stock</label><select id="np-unit">${units.map((u) => `<option>${u}</option>`).join('')}</select></div></div>
+      <div class="grid2"><div class="field"><label for="np-cond">Unités par colis</label><input id="np-cond" type="number" inputmode="decimal" min="1" value="6"></div>
+        <div class="field"><label for="np-seuil">Seuil d'alerte</label><input id="np-seuil" type="number" inputmode="decimal" min="0" value="6"></div></div>
+      <div class="field"><label for="np-price">Prix d'achat HT / unité (facultatif)</label><input id="np-price" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0,00"></div>
+      <button class="btn btn-primary press ripple-host" style="margin-top:18px" data-ok>${ic('plus')}Créer le produit</button>`,
+    (sh, close) => {
+      const v = (id) => sh.querySelector('#' + id).value;
+      sh.querySelector('[data-ok]').addEventListener('click', async (e) => {
+        const name = v('np-name').trim();
+        if (name.length < 2) { const f = sh.querySelector('#np-name').parentElement; f.classList.add('error'); f.querySelector('.err').textContent = 'Donne un nom au produit.'; return; }
+        try {
+          const p = await btnLoading(e.currentTarget, DB.createProduct({ name, supplierId: v('np-sup'), cat: v('np-cat'), unit: v('np-unit'), cond: v('np-cond'), seuil: v('np-seuil'), price: String(v('np-price')).replace(',', '.') }));
+          close(); haptic(20); toast(esc(name) + (DB.mode === 'live' ? ' ajouté à Airtable' : ' créé')); cb && cb(p);
+        } catch (err) { fail(err); }
+      });
+    });
+  }
+
+  /* ---------- Inventaire de fin de journée ---------- */
+  let invState = { filter: 'À vérifier', counts: {} };
+  const csvCell = (v) => { const s = String(v == null ? '' : v); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  function downloadCSV(name, rows) {
+    const txt = '﻿' + rows.map((r) => r.map(csvCell).join(';')).join('\r\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type: 'text/csv;charset=utf-8' })); a.download = name;
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+  function parseCSV(text) {
+    text = text.replace(/^﻿/, ''); const sep = (text.split('\n')[0].match(/;/g) || []).length >= (text.split('\n')[0].match(/,/g) || []).length ? ';' : ',';
+    const rows = []; let row = [], cur = '', q = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (q) { if (c === '"' && text[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') q = false; else cur += c; }
+      else if (c === '"') q = true; else if (c === sep) { row.push(cur); cur = ''; } else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cur); rows.push(row); row = []; cur = ''; } else cur += c;
+    }
+    if (cur || row.length) { row.push(cur); rows.push(row); }
+    return rows.filter((r) => r.some((x) => x.trim()));
+  }
+  const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s*\(fictif\)/, '').trim();
+  const num = (s) => parseFloat(String(s).replace(/\s/g, '').replace(',', '.'));
+  function pickFile(accept, cb) { const i = document.createElement('input'); i.type = 'file'; i.accept = accept; i.onchange = () => { const f = i.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => cb(String(r.result), f.name); r.readAsText(f, 'utf-8'); }; i.click(); }
+
+  routes.inventory = {
+    tab: 'inventory', auth: true, live: true,
+    render: () => {
+      const pending = DB.pendingSales().length;
+      const filters = ['À vérifier', 'Tous', ...[...new Set(DB.products.map((p) => p.cat))].sort((a, b) => a.localeCompare(b, 'fr'))];
+      return `<div class="topbar"><h1 class="page-title" style="margin:0">Inventaire</h1><button class="btn btn-ghost btn-sm press" style="width:auto" data-tools>${ic('download')}Excel</button></div>
+        <p class="page-sub">Fin de journée : compte ce qui reste. Les ventes de la caisse sont déjà déduites grâce aux recettes, il ne reste qu'à corriger les écarts.</p>
+        <button class="card card-pad sales-card press-soft" data-go="/sales" style="margin-top:14px;width:100%;text-align:left">
+          <span class="m-ico" style="background:var(--ia-bg);color:var(--ia)">${ic('receipt')}</span>
+          <span class="grow" style="display:flex;flex-direction:column"><b>Ventes du service</b><span style="font-size:13px;color:var(--ink-2)">${pending ? `${pending} vente${pending > 1 ? 's' : ''} de la caisse à déduire` : 'Caisse → recettes → stock'}</span></span>
+          ${pending ? pill('sent new', String(pending)) : ''}${ic('chev', 'chev')}</button>
+        <div class="chips" role="tablist" style="margin-top:14px">${filters.map((f) => `<button class="chip ${f === invState.filter ? 'active' : ''}" data-f="${esc(f)}">${esc(f)}</button>`).join('')}</div>
+        <p class="hint-swipe" style="margin:10px 2px 8px" data-hint></p>
+        <div data-list>${DB.ready ? '' : skeletonList(6)}</div>
+        <div class="sticky-foot" data-foot style="display:none"><button class="btn btn-primary press ripple-host" data-save></button></div>`;
+    },
+    mount: (el) => {
+      bindLinks(el);
+      const list = el.querySelector('[data-list]'); const foot = el.querySelector('[data-foot]'); const save = el.querySelector('[data-save]'); const hint = el.querySelector('[data-hint]');
+      const changed = () => Object.entries(invState.counts).filter(([id, q]) => { const p = DB.product(id); return p && Math.abs(q - p.qty) > 0.001; });
+      const updFoot = () => { const n = changed().length; foot.style.display = n ? '' : 'none'; save.textContent = `Enregistrer l'inventaire (${n} écart${n > 1 ? 's' : ''})`; };
+      const draw = () => {
+        if (!DB.ready) return;
+        // « À vérifier » : produits sous le seuil + ceux qui coûtent le plus (pas besoin de compter les gousses d'ail)
+        const byValue = [...DB.products].sort((a, b) => b.qty * b.price - a.qty * a.price).slice(0, 8).map((p) => p.id);
+        const items = DB.products.filter((p) => invState.filter === 'Tous' || (invState.filter === 'À vérifier' ? DB.level(p) !== 'ok' || byValue.includes(p.id) : p.cat === invState.filter)).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+        hint.textContent = invState.filter === 'À vérifier' ? `${items.length} produits sensibles : sous le seuil ou les plus chers en stock.` : `${items.length} produits`;
+        list.innerHTML = `<div class="list inv-list">${items.map((p) => { const q = invState.counts[p.id] != null ? invState.counts[p.id] : p.qty; const diff = Math.round((q - p.qty) * 10) / 10;
+          return `<div class="row inv-row" data-id="${p.id}"><span class="dot ${DB.level(p)}"></span><span class="grow"><span class="title">${esc(p.name)}</span><span class="meta">Théorique ${qtyStr(p.qty, p.unit)}${diff ? ` · <b style="color:${diff < 0 ? 'var(--crit-ink)' : 'var(--ok-ink)'}">${diff > 0 ? '+' : '−'}${nf(Math.abs(diff))}</b>` : ''}</span></span>
+            <label class="inv-input"><input type="number" inputmode="decimal" step="0.1" min="0" value="${nf(q).replace(/\s/g, '').replace(',', '.')}" aria-label="Quantité comptée ${esc(p.name)}"><span>${esc(unitLabel(p.unit, 2))}</span></label></div>`; }).join('')}</div>`;
+        list.querySelectorAll('[data-id]').forEach((row) => {
+          const inp = row.querySelector('input'); const p = DB.product(row.dataset.id);
+          inp.addEventListener('focus', () => inp.select());
+          inp.addEventListener('change', () => { const v = num(inp.value); if (isNaN(v)) return; invState.counts[p.id] = v; row.classList.toggle('changed', Math.abs(v - p.qty) > 0.001); const d = Math.round((v - p.qty) * 10) / 10; row.querySelector('.meta').innerHTML = `Théorique ${qtyStr(p.qty, p.unit)}${d ? ` · <b style="color:${d < 0 ? 'var(--crit-ink)' : 'var(--ok-ink)'}">${d > 0 ? '+' : '−'}${nf(Math.abs(d))}</b>` : ''}`; updFoot(); });
+          if (invState.counts[p.id] != null && Math.abs(invState.counts[p.id] - p.qty) > 0.001) row.classList.add('changed');
+        });
+        updFoot();
+      };
+      draw();
+      el.querySelectorAll('.chip').forEach((c) => c.addEventListener('click', () => { invState.filter = c.dataset.f; el.querySelectorAll('.chip').forEach((x) => x.classList.toggle('active', x === c)); draw(); }));
+      save.addEventListener('click', async () => {
+        const counts = changed().map(([id, qty]) => ({ id, qty }));
+        try { const n = await btnLoading(save, DB.saveInventory(counts)); invState.counts = {}; haptic([15, 30, 15]); toast(`Inventaire enregistré · ${n} correction${n > 1 ? 's' : ''}`); render({ silent: true }); } catch (e) { fail(e); }
+      });
+      el.querySelector('[data-tools]').addEventListener('click', () => sheet(`<h3>Excel / Google Sheets</h3><p class="page-sub" style="margin-top:4px">Pour aller plus vite, compte sur un tableur puis importe le fichier. Format CSV (s'ouvre dans Excel et Google Sheets).</p>
+        <div class="list" style="margin-top:14px">
+          <button class="row press-soft" data-exp><span class="m-ico" style="background:var(--ok-bg);color:var(--ok)">${ic('download')}</span><span class="grow"><span class="title">Exporter le stock</span><span class="meta">Feuille d'inventaire à remplir (colonne « Quantité comptée »)</span></span></button>
+          <button class="row press-soft" data-imp><span class="m-ico" style="background:var(--orange-soft);color:var(--orange-deep)">${ic('upload')}</span><span class="grow"><span class="title">Importer l'inventaire</span><span class="meta">Le fichier rempli : les écarts apparaissent avant d'enregistrer</span></span></button>
+        </div>`, (sh, close) => {
+        sh.querySelector('[data-exp]').addEventListener('click', () => {
+          downloadCSV('inventaire-restock-' + new Date().toISOString().slice(0, 10) + '.csv', [['Produit', 'Catégorie', 'Fournisseur', 'Unité', 'Stock théorique', 'Quantité comptée', 'Seuil d\'alerte', 'Prix HT']].concat(DB.products.map((p) => [p.name, p.cat, clean(DB.supplier(p.supplierId) && DB.supplier(p.supplierId).name), p.unit, String(p.qty).replace('.', ','), '', String(p.seuil).replace('.', ','), String(p.price).replace('.', ',')])));
+          close(); toast('Fichier exporté');
+        });
+        sh.querySelector('[data-imp]').addEventListener('click', () => pickFile('.csv,text/csv', (txt) => {
+          const rows = parseCSV(txt); const head = rows.shift().map(norm);
+          const iName = head.findIndex((h) => h.startsWith('produit') || h === 'nom'); const iQty = head.findIndex((h) => h.includes('compt')) >= 0 ? head.findIndex((h) => h.includes('compt')) : head.findIndex((h) => h.includes('quantit'));
+          if (iName < 0 || iQty < 0) { toast('Colonnes « Produit » et « Quantité comptée » introuvables', 'warn'); return; }
+          let n = 0, miss = 0;
+          rows.forEach((r) => { const q = num(r[iQty]); if (isNaN(q)) return; const p = DB.products.find((x) => norm(x.name) === norm(r[iName])); if (p) { invState.counts[p.id] = q; n++; } else miss++; });
+          invState.filter = 'Tous'; close(); render({ silent: true }); toast(`${n} quantité${n > 1 ? 's' : ''} importée${n > 1 ? 's' : ''}${miss ? ` · ${miss} produit${miss > 1 ? 's' : ''} inconnu${miss > 1 ? 's' : ''}` : ''}`, miss ? 'info' : 'ok');
+        }));
+      }));
+    }
+  };
+
+  /* ---------- Ventes du service : caisse → recettes → stock ---------- */
+  let salesDraft = {};
+  routes.sales = {
+    auth: true, live: true, cls: 'no-nav',
+    render: () => {
+      const pending = DB.pendingSales();
+      const today = DB.sales.filter((x) => x.done && x.date === new Date().toISOString().slice(0, 10));
+      const cats = ['Plat', 'Dessert', 'Boisson'];
+      return `<div class="back-row">${backBtn()}<button class="btn btn-ghost btn-sm press" style="width:auto" data-go="/recipes">${ic('doc')}Recettes</button></div>
+        <h1 class="page-title">Ventes du service</h1>
+        <p class="page-sub">Chaque plat vendu retire ses ingrédients du stock, d'après sa fiche recette.</p>
+        <div class="stagger">
+          <div class="card card-pad" style="margin-top:14px;display:flex;gap:12px;align-items:center">
+            <span class="m-ico" style="background:var(--ia-bg);color:var(--ia)">${ic('link')}</span>
+            <div style="flex:1;font-size:14px;line-height:1.4"><b>Caisse connectée par Make</b><br><span style="color:var(--ink-2)">${pending.length ? `${pending.length} vente${pending.length > 1 ? 's' : ''} reçue${pending.length > 1 ? 's' : ''}, pas encore déduite${pending.length > 1 ? 's' : ''}` : 'Les tickets arrivent et sont déduits automatiquement.'}</span></div>
+          </div>
+          ${pending.length ? `<div class="list" style="margin-top:10px">${pending.map((x) => { const pl = DB.plat(x.platId); return `<div class="row"><span class="grow"><span class="title">${esc(pl ? pl.name : 'Plat inconnu')}</span><span class="meta">${esc(x.source)} · ${dayLabel(x.date)}</span></span><b class="num">× ${x.qty}</b></div>`; }).join('')}</div>
+            <button class="btn btn-primary press ripple-host" style="margin-top:10px" data-pending>Déduire ces ventes du stock</button>` : ''}
+          ${DB.mode === 'demo' ? `<button class="btn btn-ghost press" style="margin-top:10px" data-sim>${ic('spark')}Simuler un service reçu de la caisse</button>` : `<button class="btn btn-ghost press" style="margin-top:10px" data-refresh>${ic('refresh')}Relever la caisse</button>`}
+          <div class="section-head"><h2>Saisie manuelle</h2><span style="font-size:13px;color:var(--ink-2)">si la caisse n'est pas reliée</span></div>
+          ${cats.map((c) => { const pls = DB.plats.filter((p) => p.cat === c); return pls.length ? `<div class="eyebrow" style="margin:12px 2px 6px">${c}s</div><div class="list">${pls.map((p) => `<div class="row" data-plat="${p.id}"><span class="grow"><span class="title">${esc(p.name)}</span><span class="meta">${p.recipe.length} ingrédient${p.recipe.length > 1 ? 's' : ''} · ${euro(p.price)}</span></span><div class="stepper sm"><button data-d="-1" aria-label="Moins">${ic('minus')}</button><output class="num">${salesDraft[p.id] || 0}</output><button data-d="1" aria-label="Plus">${ic('plus')}</button></div></div>`).join('')}</div>` : ''; }).join('')}
+          <div data-usage></div>
+          ${today.length ? `<div class="section-head"><h2>Déjà déduit aujourd'hui</h2></div><div class="list">${today.slice(0, 12).map((x) => { const pl = DB.plat(x.platId); return `<div class="row"><span class="m-ico" style="background:var(--neutral-bg)">${ic('check')}</span><span class="grow"><span class="title">${esc(pl ? pl.name : 'Plat')}</span><span class="meta">${esc(x.source)}</span></span><b class="num">× ${x.qty}</b></div>`; }).join('')}</div>` : ''}
+        </div>
+        <div class="sticky-foot" data-foot style="display:none"><button class="btn btn-primary press ripple-host" data-save></button></div>`;
+    },
+    mount: (el) => {
+      bindBack(el); bindLinks(el);
+      const usageBox = el.querySelector('[data-usage]'); const foot = el.querySelector('[data-foot]'); const save = el.querySelector('[data-save]');
+      const usageHTML = (u) => { const rows = Object.entries(u).map(([id, q]) => ({ p: DB.product(id), q })).filter((x) => x.p).sort((a, b) => b.q * b.p.price - a.q * a.p.price);
+        return `<div class="card card-pad usage"><div style="font-weight:700;margin-bottom:6px">Ce que ça retire du stock</div>${rows.map((x) => `<div class="u-row"><span>${esc(x.p.name)}</span><b class="num">−${qtyStr(Math.round(x.q * 100) / 100, x.p.unit)}</b></div>`).join('')}</div>`; };
+      const upd = () => {
+        const items = Object.entries(salesDraft).filter(([, q]) => q > 0).map(([platId, qty]) => ({ platId, qty }));
+        const n = items.reduce((t, x) => t + x.qty, 0);
+        usageBox.innerHTML = n ? `<div class="section-head"><h2>Aperçu</h2></div>` + usageHTML(DB.usage(items)) : '';
+        foot.style.display = n ? '' : 'none'; save.textContent = `Enregistrer ${n} vente${n > 1 ? 's' : ''} et déduire`;
+      };
+      el.querySelectorAll('[data-plat]').forEach((row) => row.querySelectorAll('[data-d]').forEach((b) => b.addEventListener('click', () => {
+        const id = row.dataset.plat; salesDraft[id] = Math.max(0, (salesDraft[id] || 0) + Number(b.dataset.d));
+        const o = row.querySelector('output'); o.textContent = salesDraft[id]; haptic(6); upd();
+      })));
+      upd();
+      save.addEventListener('click', async () => {
+        const items = Object.entries(salesDraft).filter(([, q]) => q > 0).map(([platId, qty]) => ({ platId, qty }));
+        try { const n = await btnLoading(save, DB.recordSales(items, 'Saisie manuelle')); salesDraft = {}; haptic([15, 30, 15]); toast(`Stock mis à jour · ${n} ingrédient${n > 1 ? 's' : ''} déduit${n > 1 ? 's' : ''}`); render({ silent: true }); } catch (e) { fail(e); }
+      });
+      const pb = el.querySelector('[data-pending]');
+      pb && pb.addEventListener('click', async () => {
+        const items = DB.pendingSales().map((x) => ({ platId: x.platId, qty: x.qty, saleId: x.id }));
+        try { const n = await btnLoading(pb, DB.recordSales(items, 'Caisse')); confetti(); toast(`Ventes déduites · ${n} mouvement${n > 1 ? 's' : ''} de stock`); render({ silent: true }); } catch (e) { fail(e); }
+      });
+      const sim = el.querySelector('[data-sim]'); sim && sim.addEventListener('click', async () => { await btnLoading(sim, DB.simulateCash()); toast('Service de midi reçu de la caisse', 'info'); render({ silent: true }); });
+      const rf = el.querySelector('[data-refresh]'); rf && rf.addEventListener('click', async () => { try { await btnLoading(rf, DB.refreshSales()); render({ silent: true }); } catch (e) { fail(e); } });
+    }
+  };
+
+  /* ---------- Carte et fiches recettes ---------- */
+  routes.recipes = {
+    auth: true, live: true, cls: 'no-nav',
+    render: () => `<div class="back-row">${backBtn()}<span></span></div>
+      <h1 class="page-title">Carte et recettes</h1>
+      <p class="page-sub">Quantités utilisées pour une portion. C'est ce qui permet de déduire le stock à chaque vente.</p>
+      <div class="stack-cards stagger recipe-grid" style="margin-top:14px">${DB.plats.map((pl) => `<button class="card card-pad press-soft" data-pl="${pl.id}" style="width:100%;text-align:left"><div style="display:flex;justify-content:space-between;gap:10px"><b>${esc(pl.name)}</b><span class="num" style="color:var(--ink-2)">${euro(pl.price)}</span></div>
+        <div style="font-size:13px;color:var(--ink-2);margin-top:4px">${pl.recipe.slice(0, 5).map((r) => { const p = DB.product(r.productId); return p ? esc(p.name.split(' (')[0]) : ''; }).filter(Boolean).join(' · ')}${pl.recipe.length > 5 ? ` · +${pl.recipe.length - 5}` : ''}</div>
+        <div style="font-size:12.5px;color:var(--ink-3);margin-top:6px">Code caisse ${esc(pl.code || '—')} · coût matière ≈ ${euro(pl.recipe.reduce((t, r) => { const p = DB.product(r.productId); return t + (p ? p.price * r.qty : 0); }, 0))}</div></button>`).join('') || '<div class="empty">Aucun plat. Ajoute-les dans la table « Plats » d\'Airtable.</div>'}</div>`,
+    mount: (el) => {
+      bindBack(el);
+      el.querySelectorAll('[data-pl]').forEach((b) => b.addEventListener('click', () => openRecipe(DB.plat(b.dataset.pl))));
+    }
+  };
+  function openRecipe(pl) {
+    const rowH = (r) => { const p = DB.product(r.productId); if (!p) return ''; return `<div class="row" data-rp="${p.id}"><span class="grow"><span class="title">${esc(p.name)}</span><span class="meta">par portion</span></span><label class="inv-input"><input type="number" inputmode="decimal" step="0.001" min="0" value="${r.qty}"><span>${esc(p.unit)}</span></label></div>`; };
+    sheet(`<h3>${esc(pl.name)}</h3><p class="page-sub" style="margin-top:4px">Mets 0 pour retirer un ingrédient.</p><div class="list" style="margin-top:12px" data-rl>${pl.recipe.map(rowH).join('')}</div>
+      <button class="btn btn-ghost press" style="margin-top:12px;border-style:dashed" data-add>${ic('plus')}Ajouter un ingrédient</button>`,
+    (sh) => {
+      const bind = (row) => { const inp = row.querySelector('input'); inp.addEventListener('change', async () => { const q = num(inp.value); if (isNaN(q)) return; try { await DB.setRecipeQty(pl.id, row.dataset.rp, q); if (q <= 0) row.classList.add('removing'); toast('Recette mise à jour'); } catch (e) { fail(e); } }); };
+      sh.querySelectorAll('[data-rp]').forEach(bind);
+      sh.querySelector('[data-add]').addEventListener('click', () => pickProduct(null, async (pid) => {
+        try { await DB.setRecipeQty(pl.id, pid, 0.1); const d = document.createElement('div'); d.innerHTML = rowH({ productId: pid, qty: 0.1 }); const row = d.firstElementChild; sh.querySelector('[data-rl]').appendChild(row); bind(row); row.querySelector('input').focus(); } catch (e) { fail(e); }
+      }, true));
+    });
+  }
+
+  /* ---------- Compte, RGPD, mentions légales ---------- */
+  function openAccount() {
+    const user = S.get('user', {}) || {};
+    sheet(`<h3>Mon compte</h3>
+      <div class="field"><label for="ac-name">Nom</label><input id="ac-name" value="${esc(clean(user.name || ''))}"></div>
+      <div class="field"><label for="ac-mail">E-mail de connexion</label><input id="ac-mail" type="email" inputmode="email" value="${esc(user.email || '')}"><span class="err"></span></div>
+      <p style="font-size:13px;color:var(--ink-2);margin:8px 2px 0">Le changement d'e-mail est aussi fait dans la table Utilisateurs d'Airtable.</p>
+      <button class="btn btn-primary press ripple-host" style="margin-top:16px" data-ok>Enregistrer</button>`,
+    (sh, close) => sh.querySelector('[data-ok]').addEventListener('click', async (e) => {
+      const mail = sh.querySelector('#ac-mail').value.trim(); const name = sh.querySelector('#ac-name').value.trim();
+      if (!/^\S+@\S+\.\S+$/.test(mail)) { const f = sh.querySelector('#ac-mail').parentElement; f.classList.add('error'); f.querySelector('.err').textContent = 'Adresse e-mail invalide.'; return; }
+      try { if (mail !== user.email) await btnLoading(e.currentTarget, DB.updateUserEmail(user, mail)); S.set('user', Object.assign({}, user, { email: mail, name: name || user.name })); S.set('lastEmail', mail); close(); toast('Compte mis à jour'); render({ silent: true }); } catch (err) { fail(err); }
+    }));
+  }
+  function openPassword() {
+    sheet(`<h3>Mot de passe et sécurité</h3>
+      <p class="page-sub" style="margin-top:4px">Restock se connecte avec ton e-mail Google : pas de mot de passe à retenir. Ici, tu peux définir un code d'accès pour verrouiller l'app sur la tablette de la cuisine.</p>
+      <div class="field"><label for="pw1">Nouveau code (4 à 6 chiffres)</label><input id="pw1" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></div>
+      <div class="field"><label for="pw2">Confirmer le code</label><input id="pw2" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"><span class="err"></span></div>
+      <div class="btn-row" style="margin-top:16px">${S.get('pin', '') ? '<button class="btn btn-ghost press" data-off>Retirer le code</button>' : ''}<button class="btn btn-primary press ripple-host" data-ok>Enregistrer</button></div>`,
+    (sh, close) => {
+      sh.querySelector('[data-ok]').addEventListener('click', async () => {
+        const a = sh.querySelector('#pw1').value, b = sh.querySelector('#pw2').value; const f = sh.querySelector('#pw2').parentElement;
+        if (!/^\d{4,6}$/.test(a)) { f.classList.add('error'); f.querySelector('.err').textContent = 'Le code doit faire 4 à 6 chiffres.'; return; }
+        if (a !== b) { f.classList.add('error'); f.querySelector('.err').textContent = 'Les deux codes ne correspondent pas.'; return; }
+        const h = await sha(a); S.set('pin', h); close(); toast("Code d'accès enregistré");
+      });
+      const off = sh.querySelector('[data-off]'); off && off.addEventListener('click', () => { S.del('pin'); close(); toast("Code d'accès retiré", 'info'); });
+    });
+  }
+  async function sha(t) { try { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('restock:' + t)); return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join(''); } catch (e) { return btoa(t); } }
+  function openTeam() {
+    const list = S.get('team', ['chef@lentrecote-nantes.example.com', 'second@lentrecote-nantes.example.com']);
+    const draw = (sh) => { sh.querySelector('[data-tl]').innerHTML = list.map((m, i) => `<div class="row"><span class="m-ico" style="background:var(--neutral-bg)">${ic('mail')}</span><span class="grow"><span class="title">${esc(m)}</span></span><button class="icon-btn press" data-rm="${i}" aria-label="Retirer">${ic('x')}</button></div>`).join('') || '<div class="row"><span class="meta">Personne pour l\'instant.</span></div>';
+      sh.querySelectorAll('[data-rm]').forEach((b) => b.addEventListener('click', () => { list.splice(Number(b.dataset.rm), 1); S.set('team', list); draw(sh); })); };
+    sheet(`<h3>Équipe qui reçoit l'alerte</h3><p class="page-sub" style="margin-top:4px">Le récap du matin part par e-mail à ces adresses.</p><div class="list" style="margin-top:12px" data-tl></div>
+      <div class="field" style="display:flex;gap:8px;align-items:flex-end"><div style="flex:1"><label for="tm">Ajouter un e-mail</label><input id="tm" type="email" inputmode="email" placeholder="prenom@restaurant.fr"></div><button class="btn btn-primary press" style="width:auto;height:50px" data-add>${ic('plus')}</button></div>`,
+    (sh) => { draw(sh); sh.querySelector('[data-add]').addEventListener('click', () => { const v = sh.querySelector('#tm').value.trim(); if (!/^\S+@\S+\.\S+$/.test(v)) { toast('E-mail invalide', 'warn'); return; } list.push(v); S.set('team', list); sh.querySelector('#tm').value = ''; draw(sh); }); });
+  }
+  function openSetupImport() {
+    sheet(`<h3>Configuration initiale</h3><p class="page-sub" style="margin-top:4px">Pour démarrer vite : remplis le modèle dans Excel ou Google Sheets (fournisseurs, e-mails, jours de livraison), puis importe-le.</p>
+      <div class="list" style="margin-top:14px">
+        <button class="row press-soft" data-tpl><span class="m-ico" style="background:var(--ok-bg);color:var(--ok)">${ic('download')}</span><span class="grow"><span class="title">Télécharger le modèle fournisseurs</span><span class="meta">Pré-rempli avec tes fournisseurs actuels</span></span></button>
+        <button class="row press-soft" data-imp><span class="m-ico" style="background:var(--orange-soft);color:var(--orange-deep)">${ic('upload')}</span><span class="grow"><span class="title">Importer les fournisseurs</span><span class="meta">Crée ou met à jour chaque fournisseur</span></span></button>
+        <button class="row press-soft" data-prod><span class="m-ico" style="background:var(--neutral-bg)">${ic('download')}</span><span class="grow"><span class="title">Exporter les produits</span><span class="meta">Liste complète avec prix et seuils</span></span></button>
+      </div>`,
+    (sh, close) => {
+      sh.querySelector('[data-tpl]').addEventListener('click', () => { downloadCSV('fournisseurs-restock.csv', [['Fournisseur', 'E-mail de commande', 'Jours de livraison', 'Délai (jours)']].concat(DB.suppliers.map((s) => [clean(s.name), s.email, s.days, s.delay]))); toast('Modèle téléchargé'); });
+      sh.querySelector('[data-prod]').addEventListener('click', () => { downloadCSV('produits-restock.csv', [['Produit', 'Catégorie', 'Fournisseur', 'Unité', 'Unités par colis', 'Seuil d\'alerte', 'Prix HT']].concat(DB.products.map((p) => [p.name, p.cat, clean(DB.supplier(p.supplierId) && DB.supplier(p.supplierId).name), p.unit, p.cond, p.seuil, String(p.price).replace('.', ',')]))); toast('Produits exportés'); });
+      sh.querySelector('[data-imp]').addEventListener('click', () => pickFile('.csv,text/csv', async (txt) => {
+        const rows = parseCSV(txt); const head = rows.shift().map(norm);
+        const iN = head.findIndex((h) => h.startsWith('fournisseur') || h === 'nom'); const iE = head.findIndex((h) => h.includes('mail')); const iJ = head.findIndex((h) => h.startsWith('jours')); const iD = head.findIndex((h) => h.startsWith('delai'));
+        if (iN < 0) { toast('Colonne « Fournisseur » introuvable', 'warn'); return; }
+        close(); toast('Import en cours…', 'info');
+        try { let n = 0; for (const r of rows) { if (!r[iN] || !r[iN].trim()) continue; await DB.upsertSupplier({ name: r[iN].trim(), email: iE >= 0 ? r[iE].trim() : '', days: iJ >= 0 ? r[iJ].trim() : '', delay: iD >= 0 ? num(r[iD]) : 0 }); n++; } DB.emit(); toast(`${n} fournisseur${n > 1 ? 's' : ''} importé${n > 1 ? 's' : ''}`); } catch (e) { fail(e); }
+      }));
+    });
+  }
+  const LEGAL = {
+    rgpd: ['Données personnelles (RGPD)', `<p>Restock traite uniquement les données nécessaires à la gestion du stock du restaurant : nom et e-mail des membres de l'équipe, coordonnées professionnelles des fournisseurs, produits, mouvements de stock, ventes et commandes.</p>
+      <h3>Finalité</h3><p>Suivre le stock, préparer les commandes fournisseurs et envoyer l'alerte du matin à l'équipe. Aucune donnée n'est revendue ni utilisée à des fins publicitaires.</p>
+      <h3>Base légale</h3><p>Exécution du contrat de service avec le restaurant et intérêt légitime pour la sécurité des données.</p>
+      <h3>Hébergement</h3><p>Données stockées dans Airtable (base « Restock »). Automatisations réalisées avec Make. La lecture des bons de livraison utilise un service d'IA : seules les photos des bons lui sont transmises.</p>
+      <h3>Durée de conservation</h3><p>Tant que le compte du restaurant est actif, puis 12 mois après la résiliation. Les bons de livraison sont conservés 10 ans (obligation comptable).</p>
+      <h3>Tes droits</h3><p>Tu peux demander l'accès, la rectification, la portabilité (export CSV) ou la suppression de tes données à tout moment, depuis l'app ou par e-mail au responsable du restaurant. Tu peux aussi saisir la CNIL (cnil.fr).</p>
+      <h3>Sur cet appareil</h3><p>L'app garde en local ton jeton Airtable, tes préférences et ton code d'accès (chiffré). « Effacer les données de cet appareil » les supprime.</p>`],
+    mentions: ['Mentions légales', `<p><b>Restock</b> est un prototype réalisé dans le cadre du module « Projet no-code & IA » (MDS, B2 2026-2027). Les données de L'Entrecôte Nantes, des fournisseurs et des prix sont fictives.</p>
+      <h3>Éditeur</h3><p>Mathéo Brousseau, étudiant. Contact : par l'intermédiaire de l'école.</p>
+      <h3>Hébergement</h3><p>Application web hébergée par GitHub Pages (GitHub Inc., 88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, États-Unis). Données hébergées par Airtable (Formagrid Inc., San Francisco).</p>
+      <h3>Propriété intellectuelle</h3><p>La marque Restock, la mascotte Coco et l'interface sont la propriété de leur auteur. Les noms de restaurants et de fournisseurs sont utilisés à titre d'exemple.</p>
+      <h3>Cookies</h3><p>Aucun cookie publicitaire ni de mesure d'audience. Seul le stockage local du navigateur est utilisé pour faire fonctionner l'app.</p>`]
+  };
+  routes.legal = {
+    auth: false, cls: 'no-nav',
+    render: (k) => { const d = LEGAL[k] || LEGAL.mentions; return `<div class="back-row">${backBtn()}<span></span></div><h1 class="page-title">${d[0]}</h1><div class="card card-pad legal" style="margin-top:14px">${d[1]}</div>${k === 'rgpd' ? `<button class="btn btn-ghost press" style="margin-top:14px;color:var(--crit-ink)" data-wipe>${ic('trash')}Effacer les données de cet appareil</button>` : ''}`; },
+    mount: (el) => { bindBack(el); const w = el.querySelector('[data-wipe]'); w && w.addEventListener('click', () => { try { Object.keys(localStorage).filter((k) => k.startsWith('restock.')).forEach((k) => localStorage.removeItem(k)); } catch (e) {} toast('Données de cet appareil effacées'); setTimeout(() => location.reload(), 900); }); }
   };
 
   /* ---------- Profil ---------- */
   routes.profile = {
     tab: 'profile', auth: true, live: true,
     render: () => {
-      const user = S.get('user', {}) || {}; const hour = S.get('alertHour', 7); const recap = S.get('recap', true);
-      const validated = DB.bons.filter((b) => b.status === 'Validé').length;
-      const row = (icon, label, value, go, extra = '') => `<button class="row press-soft ripple-host" ${go ? `data-go="${go}"` : ''} ${extra}><span class="m-ico" style="background:var(--neutral-bg)">${ic(icon)}</span><span class="grow"><span class="title">${label}</span></span>${value != null ? `<b class="num" style="color:var(--ink-2);font-weight:600">${value}</b>` : ''}${ic('chev', 'chev')}</button>`;
+      const user = S.get('user', {}) || {}; const time = S.get('alertTime', '07:00'); const recap = S.get('recap', true); const team = S.get('team', ['chef@lentrecote-nantes.example.com', 'second@lentrecote-nantes.example.com']);
+      const row = (icon, label, value, go, extra = '', sub = '') => `<button class="row press-soft ripple-host" ${go ? `data-go="${go}"` : ''} ${extra}><span class="m-ico" style="background:var(--neutral-bg)">${ic(icon)}</span><span class="grow"><span class="title">${label}</span>${sub ? `<span class="meta">${sub}</span>` : ''}</span>${value != null ? `<b class="num" style="color:var(--ink-2);font-weight:600">${value}</b>` : ''}${ic('chev', 'chev')}</button>`;
       return `<h1 class="page-title">Profil</h1>
-        <div class="stagger">
+        <div class="stagger profile-grid">
           <div class="card card-pad" style="display:flex;gap:14px;align-items:center;margin-top:16px"><span class="avatar" style="width:56px;height:56px;font-size:19px;background:var(--cafe);color:var(--creme)">${esc(DB.restaurant.initials || 'LE')}</span><div style="min-width:0"><div style="font-weight:700;font-size:18px">${esc(DB.restaurant.name)}</div><div style="font-size:13px;color:var(--ink-2)">${esc(clean(user.name || ''))}${user.role ? ' · ' + esc(user.role.toLowerCase()) : ''}</div></div></div>
-          <div><div class="section-head"><h2>Alertes</h2></div>
-            <div class="card card-pad"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-weight:700">Alerte du matin</div><div style="font-size:13px;color:var(--ink-2)">Tous les jours à <span data-h>${hour}</span> h 00</div></div>${ic('clock','ic24')}</div>
-              <div class="hours">${[6, 7, 8, 9].map((h) => `<button class="${h === hour ? 'on' : ''}" data-hour="${h}">${h} h</button>`).join('')}</div></div>
+          <div><div class="section-head"><h2>Mon compte</h2></div>
+            <div class="list">${row('mail', 'E-mail de connexion', null, null, 'data-account', esc(user.email || ''))}${row('lock', 'Mot de passe et sécurité', null, null, 'data-pass', S.get('pin', '') ? "Code d'accès activé" : 'Connexion Google')}</div></div>
+          <div><div class="section-head"><h2>Alerte du matin</h2></div>
+            <div class="card card-pad"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div style="font-weight:700">Heure d'envoi</div><div style="font-size:13px;color:var(--ink-2)">Tous les jours, à l'heure de ton choix</div></div>
+              <input type="time" class="time-input" value="${esc(time)}" step="300" aria-label="Heure de l'alerte" data-time></div></div>
             <div class="card card-pad" style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:12px"><div><div style="font-weight:700">Récap par e-mail</div><div style="font-size:13px;color:var(--ink-2)">À l'équipe de cuisine</div></div><button class="switch ${recap ? 'on' : ''}" role="switch" aria-checked="${recap}" aria-label="Récap par e-mail" data-recap></button></div>
-          </div>
+            <div class="list" style="margin-top:10px">${row('team', 'Destinataires', team.length, null, 'data-team', 'Qui reçoit l\'alerte')}</div></div>
           <div><div class="section-head"><h2>Restaurant</h2></div>
-            <div class="list">${row('box', 'Produits et seuils', DB.products.length, '/stock')}${row('truck', 'Fournisseurs', DB.suppliers.length, '/suppliers')}${row('history', 'Historique des bons', DB.bons.length, '/bons')}${row('link', 'Connexion Airtable', DB.mode === 'live' && !DB.error ? 'Connecté' : 'Démo', null, 'data-airtable')}</div>
-          </div>
+            <div class="list">${row('box', 'Produits et seuils', DB.products.length, '/stock')}${row('truck', 'Fournisseurs et livraisons', DB.suppliers.length, '/suppliers')}${row('doc', 'Carte et recettes', DB.plats.length, '/recipes')}${row('receipt', 'Ventes du service', null, '/sales')}${row('history', 'Historique des bons', DB.bons.length, '/bons')}${row('upload', 'Configuration (Excel)', null, null, 'data-setup', 'Importer fournisseurs, exporter produits')}${row('link', 'Connexion Airtable', DB.mode === 'live' && !DB.error ? 'Connecté' : 'Démo', null, 'data-airtable')}</div></div>
+          <div><div class="section-head"><h2>Légal</h2></div>
+            <div class="list">${row('shield', 'Données personnelles (RGPD)', null, '/legal/rgpd')}${row('doc', 'Mentions légales', null, '/legal/mentions')}</div></div>
           ${DB.mode === 'demo' ? `<button class="btn btn-ghost press" style="margin-top:14px" data-reset>${ic('refresh')}Réinitialiser la démo</button>` : ''}
           <button class="btn btn-ghost press" style="margin-top:10px;color:var(--crit-ink)" data-logout>${ic('logout')}Se déconnecter</button>
-          <p style="text-align:center;font-size:12.5px;color:var(--ink-3);margin-top:16px">Restock · prototype mobile v1</p>
+          <p style="text-align:center;font-size:12.5px;color:var(--ink-3);margin-top:16px">Restock · prototype v2 · mobile et tablette</p>
         </div>`;
     },
     mount: (el) => {
       bindLinks(el);
-      el.querySelectorAll('[data-hour]').forEach((b) => b.addEventListener('click', () => {
-        S.set('alertHour', Number(b.dataset.hour));
-        el.querySelectorAll('[data-hour]').forEach((x) => x.classList.toggle('on', x === b));
-        const h = el.querySelector('[data-h]'); h.textContent = b.dataset.hour; h.classList.remove('bump'); void h.offsetWidth; h.classList.add('bump');
-        toast('Alerte programmée à ' + b.dataset.hour + ' h 00');
-      }));
+      const t = el.querySelector('[data-time]');
+      t.addEventListener('change', () => { if (!t.value) return; S.set('alertTime', t.value); haptic(8); toast("Alerte programmée à " + t.value.replace(':', ' h ')); });
       el.querySelector('[data-recap]').addEventListener('click', (e) => { const on = !e.currentTarget.classList.contains('on'); e.currentTarget.classList.toggle('on', on); e.currentTarget.setAttribute('aria-checked', on); S.set('recap', on); });
+      el.querySelector('[data-account]').addEventListener('click', openAccount);
+      el.querySelector('[data-pass]').addEventListener('click', openPassword);
+      el.querySelector('[data-team]').addEventListener('click', openTeam);
+      el.querySelector('[data-setup]').addEventListener('click', openSetupImport);
       el.querySelector('[data-airtable]').addEventListener('click', openAirtableSettings);
       const r = el.querySelector('[data-reset]'); r && r.addEventListener('click', () => { DB.resetDemo(); toast('Démo réinitialisée'); });
       el.querySelector('[data-logout]').addEventListener('click', () => { S.del('user'); stack = []; go('/login', 'fade'); });

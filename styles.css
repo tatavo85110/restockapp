@@ -596,3 +596,79 @@ a { color: var(--orange-deep); text-decoration: none; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* ================= v2 : nouveaux écrans ================= */
+.nav { grid-template-columns: repeat(6, minmax(0,1fr)); padding: 0 2px; }
+.nav-item { font-size: 10.5px; letter-spacing: -.01em; }
+.nav-item svg { width: 21px; height: 21px; }
+.nav-scan { width: 50px; height: 50px; }
+
+/* Glisser pour supprimer (comme Messages sur iPhone) */
+.swipe { position: relative; overflow: hidden; background: var(--crit); }
+.swipe > .row { position: relative; z-index: 1; background: var(--card); touch-action: pan-y; }
+.swipe-act { position: absolute; right: 0; top: 0; bottom: 0; width: 104px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: #fff; font-size: 12.5px; font-weight: 700; background: var(--crit); }
+.swipe-act svg { width: 22px; height: 22px; }
+.hint-swipe { font-size: 12.5px; color: var(--ink-3); text-align: center; margin: 12px 0 0; }
+
+/* Alertes */
+.alert-head { display: flex; gap: 10px; align-items: center; width: 100%; }
+.alert-seuil { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line-strong); font-size: 13.5px; color: var(--ink-2); font-weight: 600; }
+.stepper.sm { padding: 2px; gap: 2px; }
+.stepper.sm button { width: 30px; height: 30px; border-radius: 8px; font-size: 16px; }
+.stepper.sm button svg { width: 16px; height: 16px; }
+.stepper.sm output { min-width: 50px; font-size: 14px; }
+
+/* Formulaires */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grid2 .field { min-width: 0; }
+.field select { height: 52px; border-radius: var(--r-field); border: 1px solid var(--line-strong); background: #fff; padding: 0 12px; font: inherit; font-size: 16px; color: var(--ink); outline: 0; width: 100%; -webkit-appearance: none; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%236B5A52' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 34px; }
+.field select:focus { border-color: var(--orange); box-shadow: 0 0 0 4px rgba(242,106,33,.15); }
+.time-input { height: 46px; border-radius: 12px; border: 1px solid var(--line-strong); background: #fff; padding: 0 12px; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink); min-width: 104px; }
+
+/* Inventaire */
+.inv-row { padding: 10px 12px 10px 14px; transition: background-color .25s; }
+.inv-row.changed { background: var(--orange-soft); }
+.inv-row .dot { width: 9px; height: 9px; border-radius: 99px; flex: none; background: var(--ok); }
+.inv-row .dot.low { background: var(--warn, #E0A21B); } .inv-row .dot.crit { background: var(--crit); }
+.inv-input { display: flex; align-items: center; gap: 6px; flex: none; font-size: 13px; color: var(--ink-2); font-weight: 600; }
+.inv-input input { width: 78px; height: 42px; border-radius: 11px; border: 1px solid var(--line-strong); background: #fff; text-align: right; padding: 0 10px; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; outline: 0; }
+.inv-input input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(242,106,33,.15); }
+.inv-input span { min-width: 64px; }
+.sales-card { display: flex; gap: 12px; align-items: center; }
+.usage .u-row { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; padding: 5px 0; border-top: 1px solid var(--line); }
+.usage .u-row:first-of-type { border-top: 0; }
+.usage .u-row b { color: var(--crit-ink); white-space: nowrap; }
+
+/* Fournisseurs : jours de livraison */
+.day-pick { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.day-pick button { height: 44px; border-radius: 12px; background: var(--neutral-bg); font-weight: 700; font-size: 13.5px; color: var(--ink-2); transition: background-color .2s, color .2s, transform .15s; }
+.day-pick button.on { background: var(--cafe); color: var(--creme); }
+.day-pick button:active { transform: scale(.92); }
+.o-days { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--ink-2); background: var(--neutral-bg); border-radius: 10px; padding: 7px 10px; margin-top: 10px; }
+.o-days svg { width: 16px; height: 16px; flex: none; }
+
+/* Légal */
+.legal { font-size: 14.5px; line-height: 1.55; color: var(--ink); }
+.legal h3 { font-size: 15.5px; margin: 16px 0 4px; }
+.legal p { margin: 0 0 8px; }
+
+/* ================= Tablette ================= */
+html.tablet body { display: block; background: var(--bg); }
+html.tablet #app { width: 100%; height: 100dvh; border-radius: 0; box-shadow: none; }
+html.tablet .screen { padding-left: max(32px, calc((100% - 860px) / 2)); padding-right: max(32px, calc((100% - 860px) / 2)); font-size: 16.5px; }
+html.tablet .page-title { font-size: 34px; }
+html.tablet .row { padding: 14px 18px; }
+html.tablet .row .title { font-size: 16.5px; }
+html.tablet .stats { grid-template-columns: repeat(4, minmax(0,1fr)); }
+html.tablet .alert-grid, html.tablet .recipe-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+html.tablet .alert-grid > * + *, html.tablet .recipe-grid > * + * { margin-top: 0; }
+html.tablet .nav { left: 50%; right: auto; width: min(620px, calc(100% - 48px)); transform: translateX(-50%); height: 74px; bottom: calc(18px + var(--safe-bottom)); }
+html.tablet .nav.hidden { transform: translate(-50%, 140%); }
+html.tablet .nav-item { font-size: 12.5px; }
+html.tablet .sheet { left: 50%; right: auto; width: min(640px, 100%); margin-left: calc(min(640px, 100%) / -2); border-radius: 26px 26px 0 0; }
+html.tablet .sticky-foot { max-width: 860px; margin-left: auto; margin-right: auto; }
+html.tablet .chips { margin-left: 0; margin-right: 0; padding-left: 0; }
+html.tablet .inv-input input { width: 96px; height: 48px; }
+svg.chev { width: 18px; height: 18px; flex: none; color: var(--ink-3); }
+.time-input { min-width: 124px; }
