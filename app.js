@@ -1168,14 +1168,17 @@
     tab: 'inventory', auth: true, live: true,
     render: () => {
       const pending = DB.pendingSales().length;
+      const _d = new Date(); const todayISO = _d.getFullYear() + '-' + String(_d.getMonth() + 1).padStart(2, '0') + '-' + String(_d.getDate()).padStart(2, '0');
+      const soldN = DB.sales.filter((x) => x.done && x.date === todayISO).reduce((t, x) => t + (Number(x.qty) || 0), 0);
+      const draftN = Object.values(salesDraft).reduce((t, q) => t + (q || 0), 0);
       const filters = ['À vérifier', 'Tous', ...[...new Set(DB.products.map((p) => p.cat))].sort((a, b) => a.localeCompare(b, 'fr'))];
       return `<div class="topbar"><h1 class="page-title" style="margin:0">Inventaire</h1><button class="btn btn-ghost btn-sm press" style="width:auto" data-tools>${ic('download')}Excel</button></div>
         <p class="page-sub">Fin de journée : 3 étapes pour que le stock de demain matin soit juste.</p>
         <div class="step-h"><span>1</span>Ventes de la caisse</div>
         <button class="card card-pad sales-card press-soft" data-go="/sales" style="width:100%;text-align:left">
           <span class="m-ico" style="background:var(--ia-bg);color:var(--ia)">${ic('receipt')}</span>
-          <span class="grow" style="display:flex;flex-direction:column"><b>Ventes du service</b><span style="font-size:13px;color:var(--ink-2)">${pending ? `${pending} vente${pending > 1 ? 's' : ''} de la caisse à déduire` : 'Caisse → recettes → stock'}</span></span>
-          ${pending ? pill('sent new', String(pending)) : ''}${ic('chev', 'chev')}</button>
+          <span class="grow" style="display:flex;flex-direction:column"><b>Ventes du service</b><span style="font-size:13px;color:var(--ink-2)">${pending ? `${pending} vente${pending > 1 ? 's' : ''} de la caisse à déduire` : draftN ? `${draftN} plat${draftN > 1 ? 's' : ''} importé${draftN > 1 ? 's' : ''}, à enregistrer` : soldN ? `${soldN} plat${soldN > 1 ? 's' : ''} vendu${soldN > 1 ? 's' : ''} aujourd'hui, déduit${soldN > 1 ? 's' : ''} du stock` : 'Aucune vente enregistrée aujourd\'hui'}</span></span>
+          ${pending ? pill('sent new', String(pending)) : draftN ? pill('draft', String(draftN)) : soldN ? pill('ok', String(soldN)) : ''}${ic('chev', 'chev')}</button>
         <div class="step-h"><span>2</span>Pertes et erreurs du jour</div>
         <div class="card card-pad">
           <p style="margin:0 0 10px;font-size:14px;color:var(--ink-2);line-height:1.45">Un steak brûlé, une bouteille cassée, un plat refait, le repas du personnel… Déclare-le pour que le stock reste juste.</p>
