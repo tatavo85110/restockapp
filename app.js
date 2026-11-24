@@ -347,7 +347,7 @@
   routes[''] = routes.splash = {
     cls: 'full',
     render: () => `<div class="splash">${coco('idle', 170, { steam: 'rgba(255,255,255,.8)' })}<div class="wordmark"><b style="color:#fff">re</b>stock</div><div class="tag">Le stock qui se remplit tout seul</div><div class="splash-dots"><i></i><i></i><i></i></div></div>`,
-    mount: () => { const t = setTimeout(() => go(startRoute(), 'fade'), 1900); return () => clearTimeout(t); }
+    mount: () => { const t = setTimeout(() => go('/onboarding', 'fade'), 1900); return () => clearTimeout(t); }
   };
 
   /* ---------- Onboarding ---------- */
@@ -365,7 +365,7 @@
     </div>`,
     mount: (el) => {
       let i = 0; const track = el.querySelector('.onb-track'); const slides = el.querySelectorAll('.onb-slide'); const dots = el.querySelectorAll('.onb-dots i'); const next = el.querySelector('[data-next]');
-      const finish = () => { S.set('onboarded', true); go('/login', 'push'); };
+      const finish = () => { S.set('onboarded', true); go(S.get('user', null) ? '/home' : '/login', 'push'); };
       const show = (n) => {
         i = Math.max(0, Math.min(ONB.length - 1, n));
         track.style.transform = `translateX(${-i * 100}%)`;
@@ -1026,7 +1026,7 @@
   };
 
   /* ================= Démarrage ================= */
-  if (!location.hash || location.hash === '#/' || location.hash === '#') { location.replace('#/splash'); }
+  location.replace('#/splash');
   render();
   DB.load();
 })();
