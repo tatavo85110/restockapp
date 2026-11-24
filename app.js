@@ -1145,12 +1145,13 @@
   let xlsxP = null;
   const loadXLSX = () => xlsxP || (xlsxP = new Promise((res, rej) => { if (window.XLSX) return res(window.XLSX); const sc = document.createElement('script'); sc.src = 'vendor/xlsx.full.min.js'; sc.onload = () => res(window.XLSX); sc.onerror = () => { xlsxP = null; rej(new Error('Lecture Excel indisponible (connexion ?)')); }; document.head.appendChild(sc); }));
   function pickTable(sheetHint, keys, cb) {
-    const i = document.createElement('input'); i.type = 'file'; i.accept = '.xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    const i = document.createElement('input'); i.type = 'file'; /* pas de filtre : sur iPhone/Android un filtre grise souvent les fichiers Excel */
     const fromHeader = (rows) => { const k = rows.findIndex((r) => r.some((c) => keys.some((key) => norm(c).startsWith(key)))); return k < 0 ? null : rows.slice(k).map((r) => r.map((c) => (c == null ? '' : String(c)))); };
     i.onchange = async () => {
       const f = i.files[0]; if (!f) return;
       try {
         let rows = null;
+        if (!/\.(xlsx?|csv|txt)$/i.test(f.name)) { toast('Choisis un fichier Excel (.xlsx) ou CSV', 'warn'); return; }
         if (/\.xlsx?$/i.test(f.name)) {
           const X = await loadXLSX(); const wb = X.read(await f.arrayBuffer(), { type: 'array' });
           const names = [...wb.SheetNames].sort((a, b) => (norm(b).includes(sheetHint) ? 1 : 0) - (norm(a).includes(sheetHint) ? 1 : 0));
@@ -1415,14 +1416,14 @@
     sheet(`<h3>Configuration initiale</h3><p class="page-sub" style="margin-top:4px">Pour démarrer vite : remplis le modèle dans Excel ou Google Sheets (fournisseurs, e-mails, jours de livraison), puis importe-le.</p>
       <div class="list" style="margin-top:14px">
         <button class="row press-soft" data-tpl><span class="m-ico" style="background:var(--ok-bg);color:var(--ok)">${ic('download')}</span><span class="grow"><span class="title">Télécharger le modèle fournisseurs</span><span class="meta">Pré-rempli avec tes fournisseurs actuels</span></span></button>
-        <button class="row press-soft" data-imp><span class="m-ico" style="background:var(--orange-soft);color:var(--orange-deep)">${ic('upload')}</span><span class="grow"><span class="title">Importer les fournisseurs</span><span class="meta">Crée ou met à jour chaque fournisseur</span></span></button>
+        <button class="row press-soft" data-imp><span class="m-ico" style="background:var(--orange-soft);color:var(--orange-deep)">${ic('upload')}</span><span class="grow"><span class="title">Importer les fournisseurs</span><span class="meta">Fichier Excel ou CSV</span></span></button>
         <button class="row press-soft" data-prod><span class="m-ico" style="background:var(--neutral-bg)">${ic('download')}</span><span class="grow"><span class="title">Exporter les produits</span><span class="meta">Liste complète avec prix et seuils</span></span></button>
       </div>`,
     (sh, close) => {
       sh.querySelector('[data-tpl]').addEventListener('click', () => { downloadCSV('fournisseurs-restock.csv', [['Fournisseur', 'E-mail de commande', 'Jours de livraison', 'Délai (jours)']].concat(DB.suppliers.map((s) => [clean(s.name), s.email, s.days, s.delay]))); toast('Modèle téléchargé'); });
       sh.querySelector('[data-prod]').addEventListener('click', () => { downloadCSV('produits-restock.csv', [['Produit', 'Catégorie', 'Fournisseur', 'Unité', 'Unités par colis', 'Seuil d\'alerte', 'Prix HT']].concat(DB.products.map((p) => [p.name, p.cat, clean(DB.supplier(p.supplierId) && DB.supplier(p.supplierId).name), p.unit, p.cond, p.seuil, String(p.price).replace('.', ',')]))); toast('Produits exportés'); });
-      sh.querySelector('[data-imp]').addEventListener('click', () => pickFile('.csv,text/csv', async (txt) => {
-        const rows = parseCSV(txt); const head = rows.shift().map(norm);
+      sh.querySelector('[data-imp]').addEventListener('click', () => pickTable('fournisseur', ['fournisseur', 'nom'], async (rows) => {
+        const head = rows.shift().map(norm);
         const iN = head.findIndex((h) => h.startsWith('fournisseur') || h === 'nom'); const iE = head.findIndex((h) => h.includes('mail')); const iJ = head.findIndex((h) => h.startsWith('jours')); const iD = head.findIndex((h) => h.startsWith('delai'));
         if (iN < 0) { toast('Colonne « Fournisseur » introuvable', 'warn'); return; }
         close(); toast('Import en cours…', 'info');
